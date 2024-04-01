@@ -1,6 +1,6 @@
 diff -Naur ./newlib-4.4.0.20231231-origin/newlib/libc/include/sys/dirent.h ./newlib-4.4.0.20231231/newlib/libc/include/sys/dirent.h
---- ./newlib-4.4.0.20231231-origin/newlib/libc/include/sys/dirent.h	2023-12-31 18:00:18.000000000 +0100
-+++ ./newlib-4.4.0.20231231/newlib/libc/include/sys/dirent.h	2024-04-01 13:48:15.907994623 +0200
+--- ./newlib/libc/include/sys/dirent.h	2023-12-31 18:00:18.000000000 +0100
++++ ./newlib/libc/include/sys/dirent.h	2024-04-01 13:48:15.907994623 +0200
 @@ -1,13 +1,28 @@
 -/* <dirent.h> includes <sys/dirent.h>, which is this file.  On a
 -   system which supports <dirent.h>, this file is overridden by
@@ -38,8 +38,8 @@ diff -Naur ./newlib-4.4.0.20231231-origin/newlib/libc/include/sys/dirent.h ./new
  }
  #endif
 diff -Naur ./newlib-4.4.0.20231231-origin/newlib/libc/include/sys/resource.h ./newlib-4.4.0.20231231/newlib/libc/include/sys/resource.h
---- ./newlib-4.4.0.20231231-origin/newlib/libc/include/sys/resource.h	2023-12-31 18:00:18.000000000 +0100
-+++ ./newlib-4.4.0.20231231/newlib/libc/include/sys/resource.h	2024-04-01 13:51:04.150358529 +0200
+--- ./newlib/libc/include/sys/resource.h	2023-12-31 18:00:18.000000000 +0100
++++ ./newlib/libc/include/sys/resource.h	2024-04-01 13:51:04.150358529 +0200
 @@ -11,10 +11,16 @@
  #define	RUSAGE_CHILDREN	-1		/* terminated child processes */
  
@@ -59,8 +59,8 @@ diff -Naur ./newlib-4.4.0.20231231-origin/newlib/libc/include/sys/resource.h ./n
  
  #ifdef __cplusplus
 diff -Naur ./newlib-4.4.0.20231231-origin/newlib/libc/include/sys/utime.h ./newlib-4.4.0.20231231/newlib/libc/include/sys/utime.h
---- ./newlib-4.4.0.20231231-origin/newlib/libc/include/sys/utime.h	2023-12-31 18:00:18.000000000 +0100
-+++ ./newlib-4.4.0.20231231/newlib/libc/include/sys/utime.h	2024-04-01 14:03:47.175051208 +0200
+--- ./newlib/libc/include/sys/utime.h	2023-12-31 18:00:18.000000000 +0100
++++ ./newlib/libc/include/sys/utime.h	2024-04-01 14:03:47.175051208 +0200
 @@ -15,6 +15,8 @@
    time_t modtime; 
  };

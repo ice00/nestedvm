@@ -155,7 +155,7 @@ tasks/build_%: tasks/patch_%
 
 ## gcc ##############################################################################
 
-version_gcc = 4.8.5
+version_gcc = 13.2.0
 
 url_gcc-all = http://mirrors.kernel.org/gnu/gcc/gcc-$(version_gcc)/gcc-$(version_gcc).tar.gz
 
@@ -220,7 +220,7 @@ tasks/build_gpc: tasks/patch_gpc tasks/build_libc
 
 ## binutils ##############################################################################
 
-version_binutils = 2.24
+version_binutils = 2.42
 url_binutils = ftp://ftp.gnu.org/gnu/binutils/binutils-$(version_binutils).tar.gz
 #patches_binutils = binutils-no64.patch binutils-nocompilein.patch
 patches_binutils = binutils-$(version_binutils).patch
@@ -228,9 +228,10 @@ configure_binutils = --target=mips-unknown-elf
 
 ## newlib ##############################################################################
 
-version_newlib = 1.20.0
+version_newlib = 4.4.0.20231231
 url_newlib = ftp://sourceware.org/pub/newlib/newlib-$(version_newlib).tar.gz
-patches_newlib = newlib-mips.patch newlib-tzset.patch newlib-malloc.patch newlib-nomemcpy.patch newlib-unix.patch newlib-unistd.patch newlib-nestedvm-define.patch newlib-sdata.patch newlib-new.patch
+patches_newlib = newlib-mips.patch 
+# newlib-tzset.patch newlib-malloc.patch newlib-nomemcpy.patch newlib-unix.patch newlib-unistd.patch newlib-nestedvm-define.patch newlib-sdata.patch newlib-new.patch
 configure_newlib = --enable-multilib --target=mips-unknown-elf
 
 tasks/build_newlib: tasks/build_gcc
@@ -273,7 +274,7 @@ url_linpack = http://www.math.iastate.edu/burkardt/f_src/linpack_bench/linpack_b
 
 ## zlib ##############################################################################
 
-version_zlib = 1.2.7
+version_zlib = 1.3.1
 url_zlib = http://www.zlib.net/zlib-$(version_zlib).tar.gz
 configure_zlib = --static
 
@@ -287,7 +288,7 @@ tasks/build_zlib: tasks/patch_zlib
 
 ## libpng ##############################################################################
 
-version_libpng = 1.5.10
+version_libpng = 1.6.43
 url_libpng = $(sourceforge)libpng/libpng-$(version_libpng).tar.gz
 configure_libpng = --disable-shared --host=mips-unknown-elf
 
@@ -301,7 +302,7 @@ tasks/build_libpng: tasks/build_zlib tasks/patch_libpng tasks/build_libc
 
 ## libiconv ##############################################################################
 
-version_libiconv = 1.14
+version_libiconv = 1.17
 url_libiconv = http://ftp.gnu.org/gnu/libiconv/libiconv-$(version_libiconv).tar.gz
 configure_libiconv = --disable-shared --host=mips-unknown-elf
 
@@ -315,8 +316,8 @@ tasks/build_libiconv: tasks/patch_libiconv tasks/build_libc
 
 ## gd ##############################################################################
 
-version_gd = 2.0.35
-url_gd = http://www.chipsnbytes.net/downloads/gd-$(version_gd).tar.gz
+version_gd = 2.3.3
+url_gd = http://github.com/libgd/libgd/archive/refs/tags/gd-$(version_gd).tar.gz
 configure_gd = --disable-shared --host=mips-unknown-elf
 
 tasks/build_gd: tasks/build_freetype tasks/patch_gd tasks/build_libc
@@ -330,13 +331,13 @@ tasks/build_gd: tasks/build_freetype tasks/patch_gd tasks/build_libc
 
 ## expat ##############################################################################
 
-version_expat = 2.0.0
+version_expat = 2.6.2
 url_expat = $(sourceforge)expat/expat-$(version_expat).tar.gz
 configure_expat = --host= --target=mips-unknown-elf
 
 ## gmp ##############################################################################
 
-version_gmp = 4.1.4
+version_gmp = 6.3.0
 url_gmp = ftp://ftp.gnu.org/gnu/gmp/gmp-$(version_gmp).tar.gz
 configure_gmp = --host=mips-unknown-elf
 
@@ -351,8 +352,8 @@ tasks/build_gmp: tasks/patch_gmp tasks/build_libc
 
 ## nasm ##############################################################################
 
-version_nasm = 0.98.39
-url_nasm = $(sourceforge)nasm/nasm-$(version_nasm).tar.gz
+version_nasm = 2.16.01
+url_nasm = https://www.nasm.us/pub/nasm/releasebuilds$(version_nasm)/nasm-$(version_nasm).tar.gz
 configure_nasm = --host=mips-unknown-elf
 
 
@@ -379,7 +380,7 @@ tasks/build_linker: tasks/build_binutils $(root)/src/org/ibex/nestedvm/linker.ld
 
 ## libjpeg ##############################################################################
 
-version_libjpeg = 7
+version_libjpeg = 9f
 url_libjpeg = http://www.ijg.org/files/jpegsrc.v$(version_libjpeg).tar.gz
 
 tasks/extract_libjpeg: tasks/download_libjpeg
@@ -403,8 +404,8 @@ tasks/build_libjpeg: tasks/patch_libjpeg tasks/build_libc
 
 ## libmspack ##############################################################################
 
-version_libmspack = 20030726
-url_libmspack = http://www.cabextract.org.uk/libmspack/libmspack-$(version_libmspack).tar.gz
+version_libmspack = 1.11
+url_libmspack = https://github.com/kyz/libmspack/archive/refs/tags/v$(version_libmspack).tar.gz
 patches_libmspack = libmspack.patch
 
 tasks/extract_libmspack: tasks/download_libmspack tasks/build_libc
@@ -426,8 +427,8 @@ tasks/build_libmspack: tasks/patch_libmspack tasks/build_libc
 
 ## freetype ##############################################################################
 
-version_freetype = 2.4.9
-url_freetype = $(sourceforge)freetype/freetype-$(version_freetype).tar.gz
+version_freetype = 2.13.2
+url_freetype = $(sourceforge)freetype/files/freetype2/freetype-$(version_freetype).tar.gz 
 #patches_freetype = freetype.patch ft-nostdio.patch
 
 tasks/build_freetype: tasks/patch_freetype tasks/build_libc
@@ -468,7 +469,7 @@ tasks/build_boehmgc: tasks/patch_boehmgc tasks/build_libc
 
 ## busybox ##############################################################################
 
-version_busybox = 1.00-pre9
+version_busybox = 1.16.0
 url_busybox = http://www.busybox.net/downloads/legacy/busybox-$(version_busybox).tar.gz
 patches_busybox = busybox.patch
 
@@ -515,8 +516,8 @@ tasks/build_tex: tasks/build_tex_tangle tasks/build_gpc tasks/download_texinputs
 
 ## samba ##############################################################################
 
-version_samba = 3.0.4
-url_samba = http://us1.samba.org/samba/ftp/old-versions/samba-$(version_samba).tar.gz
+version_samba = 4.20.0
+url_samba = https://download.samba.org/pub/samba/samba/samba-$(version_samba).tar.gz
 patches_samba = samba.patch
 
 tasks/build_samba: tasks/patch_samba

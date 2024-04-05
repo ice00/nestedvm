@@ -1,4 +1,8 @@
 #include <string.h>
+
+// patch for compiling
+#include <sys/param.h> 
+
 #include <sys/stat.h>
 #include <sys/dirent.h>
 #include <sys/types.h>
@@ -167,10 +171,17 @@ int _sysctl_r(struct _reent *ptr, int *name, int namelen, void *oldp, size_t *ol
     }
 }
 
-int sync() {
-    /* do nothing*/
-    return 0;
-}
+
+//int sync() {
+//    /* do nothing*/
+//    return 0;
+//}
+
+//patch for compiling    
+void sync() {
+/* do nothing*/
+//return 0;
+} 
 
 char *ttyname(int fd) {
     return isatty(fd) ? "/dev/console" : NULL;
@@ -318,7 +329,7 @@ struct hostent *gethostbyname(const char *hostname) {
     size_t size = sizeof(buf);
     int err,i,n=0;
     
-    err = _resolve_hostname(hostname,buf,&size);
+    err = _resolve_hostname(hostname,(void *)buf,&size);  // patched for compiling
     if(err != 0) { h_errno = err; return NULL; }
     
     memcpy(addr_list_buf,buf,size);
@@ -360,7 +371,7 @@ static int gr_parse_body(const char *buf) {
 
 static int pw_parse_body(const char *buf) {
     int pos;
-    if(sscanf(buf,"%[^:]:%[^:]:%d:%d:%[^:]:%[^:]:%s\n",pw_name,pw_password,&pw_passwd.pw_uid,&pw_passwd.pw_gid,pw_gecos,pw_dir,pw_shell) < 7) return -1;
+    if(sscanf(buf,"%[^:]:%[^:]:%hd:%hd:%[^:]:%[^:]:%s\n",pw_name,pw_password,&pw_passwd.pw_uid,&pw_passwd.pw_gid,pw_gecos,pw_dir,pw_shell) < 7) return -1; // patched for compiling
     pw_passwd.pw_name = pw_name;
     pw_passwd.pw_passwd = pw_password;
     pw_passwd.pw_gecos = pw_gecos;
@@ -725,7 +736,7 @@ struct utsname *name;
 int
 gethostname(name, namelen)
 char *name;
-int namelen;
+size_t namelen;  // patched for compiling
 {
     int mib[2];
     size_t size;

@@ -12,20 +12,40 @@ public class InodeCache {
     private static final short SHORT_NULL = -1;
     private static final int LOAD_FACTOR = 2;
     
+    /** Maximum size of the cache */
     private final int maxSize;
+    
+    /** Total number of slots in the cache */
     private final int totalSlots;
+    
+    /** Maximum number of used slots in the cache */
     private final int maxUsedSlots;
     
+    // Arrays to store keys, next and previous elements, inodes, and reverse lookups
     private final Object[] keys;
     private final short[] next;
     private final short[] prev;
     private final short[] inodes;
     private final short[] reverse;
     
+    // Current size and number of used slots in the cache
     private int size, usedSlots;
+    
+    // Most recently used and least recently used elements
     private short mru, lru;
     
-    public InodeCache() { this(1024); }
+    /**
+     * Construct the inode cache with default size  
+     */
+    public InodeCache() { 
+        this(1024);
+    }
+    
+    /**
+     * Construct the inode cache with given max size
+     * 
+     * @param maxSize max size to use
+     */
     public InodeCache(int maxSize) {
         this.maxSize = maxSize;
         totalSlots = maxSize*LOAD_FACTOR*2 + 3;
@@ -39,8 +59,29 @@ public class InodeCache {
         clear();
     }
     
-    private static void fill(Object[] a,Object o) { for(int i=0;i<a.length;i++) a[i] = o; }
-    private static void fill(short[] a, short s)  { for(int i=0;i<a.length;i++) a[i] = s; }
+    /**
+     * Fillethe array of object with the given object
+     * 
+     * @param a array to fill
+     * @param o object to use
+     */
+    private static void fill(Object[] a,Object o) { 
+        for(int i=0;i<a.length;i++) a[i] = o; 
+    }
+     
+    /**
+     * Fill the array of short with the given short
+     * 
+     * @param a array to fill
+     * @param s short to use
+     */
+    private static void fill(short[] a, short s)  { 
+        for(int i=0;i<a.length;i++) a[i] = s; 
+    }
+        
+    /**
+     * Clear the cache
+     */
     public final void clear() {
         size = usedSlots = 0;
         mru = lru = -1;
@@ -49,6 +90,12 @@ public class InodeCache {
         fill(reverse,SHORT_NULL);
     }
     
+    /**
+     * Get the value with the given key
+     * 
+     * @param key the key to use
+     * @return the value of the key 
+     */
     public final short get(Object key) {
         int hc = key.hashCode() & 0x7fffffff;
         int dest = hc % totalSlots;
@@ -141,6 +188,12 @@ public class InodeCache {
         return (short) inode;
     }
     
+    /**
+     * Reverse lookup of an inode
+     * 
+     * @param inode inode to search
+     * @return the value
+     */
     public Object reverse(short inode) {
         int dest = inode % totalSlots;
         int odest = dest;
@@ -154,54 +207,5 @@ public class InodeCache {
             plus = !plus;
         }        
         return null;
-    }
-    
-    /*private void dump() {
-        System.err.println("Size " + size);
-        System.err.println("UsedSlots " + usedSlots);
-        System.err.println("MRU " + mru);
-        System.err.println("LRU " + lru);
-        if(size == 0) return;
-        for(int i=mru;;i=prev[i]) {
-            System.err.println("" + i + ": " + keys[i] + " -> " + inodes[i] + "(prev: " + prev[i] + " next: " + next[i] + ")");
-            if(i == lru) break;
-        }
-    }
-    
-    private void stats() {
-        int freeKeys = 0;
-        int freeReverse = 0;
-        int placeholderKeys = 0;
-        int placeholderReverse = 0;
-        for(int i=0;i<totalSlots;i++) {
-            if(keys[i] == null) freeKeys++;
-            if(keys[i] == PLACEHOLDER) placeholderKeys++;
-            if(reverse[i] == SHORT_NULL) freeReverse++;
-        }
-        System.err.println("Keys: " + freeKeys + "/" + placeholderKeys);
-        System.err.println("Reverse: " + freeReverse);
-    }
-    
-    public static void main(String[] args) throws Exception {
-        InodeCache c = new InodeCache();
-        java.io.BufferedReader br = new java.io.BufferedReader(new java.io.InputStreamReader(System.in)); 
-        String s;
-        boolean good = false;
-        try {
-            while((s = br.readLine()) != null) {
-                if(s.charAt(0) == '#') {
-                    short n = Short.parseShort(s.substring(1));
-                        System.err.println("" + n + " -> " + c.reverse(n));
-                } else {
-                    //System.err.println("Adding " + s);
-                    short n = c.get(s);
-                    System.err.println("Added " + s + " -> " + n);
-                    //c.dump();
-                }
-            }
-            good = true;
-        } finally {
-            if(!good) c.stats();
-        }
-    }*/
+    }   
 }

@@ -100,6 +100,12 @@ public abstract class Compiler implements Registers {
         System.exit(1);
     }
 
+    /**
+     * Main class for compilation
+     * 
+     * @param args argument to use
+     * @throws IOException Io Excpetion in case of errors
+     */
     public static void main(String[] args) throws IOException {
         String outfile = null;
         String outdir = null;
@@ -109,6 +115,8 @@ public abstract class Compiler implements Registers {
         String outformat = null;
         boolean dumpOptions = false;
         int arg = 0;
+        
+        // scan all argument
         while(args.length-arg > 0) {
             if(args[arg].equals("-outfile")) {
                 arg++;
@@ -147,7 +155,7 @@ public abstract class Compiler implements Registers {
         Writer w = null;
         OutputStream os = null;
         Compiler comp = null;
-        if(outformat == null || outformat.equals("class")) {
+        if (outformat == null || outformat.equals("class")) {
             if(outfile != null) {
                 os = new FileOutputStream(outfile);
                 comp = new ClassFileCompiler(mipsBinary,className,os);
@@ -190,7 +198,14 @@ public abstract class Compiler implements Registers {
             if(os != null) os.close();
         }
     }
-
+    
+    /**
+     * Construct the compiler 
+     * 
+     * @param binary ELF binary
+     * @param fullClassName class name
+     * @throws IOException Io Exception in case of errors
+     */
     public Compiler(Seekable binary, String fullClassName) throws IOException {
         this.fullClassName = fullClassName;
         elf = new ELF(binary);
@@ -203,8 +218,10 @@ public abstract class Compiler implements Registers {
     abstract void _go() throws Exn, IOException;
 
     private boolean used;
+    
+    
     public void go() throws Exn, IOException {
-        if(used) throw new RuntimeException("Compiler instances are good for one shot only");
+        if (used) throw new RuntimeException("Compiler instances are good for one shot only");
         used = true;
 
         if(onePage && pageSize <= 4096) pageSize = 4*1024*1024;
@@ -228,15 +245,14 @@ public abstract class Compiler implements Registers {
             // Find all possible branches
             jumpableAddresses = new Hashtable<>();
 
-            jumpableAddresses.put(new Integer(elf.header.entry),Boolean.TRUE);
+            jumpableAddresses.put(elf.header.entry, Boolean.TRUE);
 
             ELF.SHeader text = elf.sectionWithName(".text");
             if(text == null) throw new Exn("No .text segment");
 
             findBranchesInSymtab(symtab,jumpableAddresses);
 
-            for(int i=0;i<elf.sheaders.length;i++) {
-                ELF.SHeader sheader = elf.sheaders[i];
+            for (ELF.SHeader sheader : elf.sheaders) {
                 String name = sheader.name;
                 // if this section doesn't get loaded into our address space don't worry about it
                 if(sheader.addr == 0x0) continue;
@@ -286,10 +302,10 @@ public abstract class Compiler implements Registers {
     private void findBranchesInSymtab(ELF.Symtab symtab, Hashtable<Integer,Boolean> jumps) {
         ELF.Symbol[] symbols = symtab.symbols;
         int n=0;
-        for(int i=0;i<symbols.length;i++) {
-            ELF.Symbol s = symbols[i];
+        
+        for (ELF.Symbol s : symbols) {
             if(s.type == ELF.Symbol.STT_FUNC) {
-                if(jumps.put(new Integer(s.addr),Boolean.TRUE) == null) {
+                if (jumps.put(s.addr,Boolean.TRUE) == null) {
                     //System.err.println("Adding symbol from symtab: " + s.name + " at " + toHex(s.addr));
                     n++;
                 }
@@ -322,10 +338,10 @@ public abstract class Compiler implements Registers {
                 case 0:
                     switch(subcode) {
                         case 9: // JALR
-                            if(jumps.put(new Integer(pc+8),Boolean.TRUE) == null) n++; // return address
+                            if(jumps.put(pc+8,Boolean.TRUE) == null) n++; // return address
                             break;
                         case 12: // SYSCALL
-                            if(jumps.put(new Integer(pc+4),Boolean.TRUE) == null) n++;
+                            if(jumps.put(pc+4,Boolean.TRUE) == null) n++;
                             break;
                     }
                     break;
@@ -333,31 +349,31 @@ public abstract class Compiler implements Registers {
                     switch(rt) {
                         case 16: // BLTZAL
                         case 17: // BGTZAL
-                            if(jumps.put(new Integer(pc+8),Boolean.TRUE) == null) n++; // return address
+                            if(jumps.put(pc+8,Boolean.TRUE) == null) n++; // return address
                             // fall through
                         case 0: // BLTZ
                         case 1: // BGEZ
-                            if(jumps.put(new Integer(pc+branchTarget*4+4),Boolean.TRUE) == null) n++;
+                            if(jumps.put(pc+branchTarget*4+4,Boolean.TRUE) == null) n++;
                             break;
                     }
                     break;
                 case 3: // JAL
-                    if(jumps.put(new Integer(pc+8),Boolean.TRUE) == null) n++; // return address
+                    if(jumps.put(pc+8,Boolean.TRUE) == null) n++; // return address
                     // fall through
                 case 2: // J
-                    if(jumps.put(new Integer((pc&0xf0000000)|(jumpTarget << 2)),Boolean.TRUE) == null) n++;
+                    if(jumps.put((pc&0xf0000000)|(jumpTarget << 2),Boolean.TRUE) == null) n++;
                     break;
                 case 4: // BEQ
                 case 5: // BNE
                 case 6: // BLEZ
                 case 7: // BGTZ
-                    if(jumps.put(new Integer(pc+branchTarget*4+4),Boolean.TRUE) == null) n++;
+                    if(jumps.put(pc+branchTarget*4+4,Boolean.TRUE) == null) n++;
                     break;
                 case 9: { // ADDIU
                     if(pc - lui_pc[rs] <= 4*32) {
                         int t = (lui_val[rs]<<16)+signedImmediate;
                         if((t&3)==0 && t >= base && t < base+size) {
-                            if(jumps.put(new Integer(t),Boolean.TRUE) == null) {
+                            if(jumps.put(t,Boolean.TRUE) == null) {
                                 //System.err.println("Possible jump to " + toHex(t) + " (" + inter.sourceLine(t) + ") from " + toHex(pc) + " (" + inter.sourceLine(pc) + ")");
                                 n++;
                             }
@@ -376,7 +392,7 @@ public abstract class Compiler implements Registers {
                 case 17: // FPU Instructions
                     switch(rs) {
                         case 8: // BC1F, BC1T
-                            if(jumps.put(new Integer(pc+branchTarget*4+4),Boolean.TRUE) == null) n++;
+                            if(jumps.put(pc+branchTarget*4+4,Boolean.TRUE) == null) n++;
                             break;
                     }
                     break;
@@ -389,10 +405,10 @@ public abstract class Compiler implements Registers {
     private void findBranchesInData(DataInputStream dis, int size, Hashtable<Integer,Boolean> jumps, int textStart, int textEnd) throws IOException {
         int count = size/4;
         int n=0;
-        for(int i=0;i<count;i++) {
+        for (int i=0;i<count;i++) {
             int word = dis.readInt();
             if((word&3)==0 && word >= textStart && word < textEnd) {
-                if(jumps.put(new Integer(word),Boolean.TRUE) == null) {
+                if (jumps.put(word,Boolean.TRUE) == null) {
                     //System.err.println("Added " + toHex(word) + " as possible branch target (fron data segment)");
                     n++;
                 }
@@ -403,28 +419,65 @@ public abstract class Compiler implements Registers {
     }
 
     // Helper functions for pretty output
+    
+    /**
+     * Convet the number to hex
+     * 
+     * @param n the number to convert
+     * @return the hex number
+     */
     final static String toHex(int n) { return "0x" + Long.toString(n & 0xffffffffL, 16); }
+
+    /**
+     * Convet the number to hex, with padding
+     * 
+     * @param n the number to convert
+     * @return the hex number
+     */
     final static String toHex8(int n) {
         String s = Long.toString(n & 0xffffffffL, 16);
         StringBuffer sb = new StringBuffer("0x");
-        for(int i=8-s.length();i>0;i--) sb.append('0');
+        for (int i=8-s.length();i>0;i--) sb.append('0');
         sb.append(s);
         return sb.toString();
     }
 
+    /**
+     * Convert the number to octal
+     * 
+     * @param n the number to convert
+     * @return the octal value
+     */
     final static String toOctal3(int n) {
         char[] buf = new char[3];
-        for(int i=2;i>=0;i--) {
+        for (int i=2;i>=0;i--) {
             buf[i] = (char) ('0' + (n & 7));
             n >>= 3;
         }
         return new String(buf);
     }
 
-    // Option parsing
+    /**
+     * Option parsing
+     */
     private class Option {
         private java.lang.reflect.Field field;
-        public Option(String name) throws NoSuchFieldException { field = name==null ? null : Compiler.class.getDeclaredField(name); }
+        
+        /**
+         * Construct an option with the given name
+         * 
+         * @param name the name of option
+         * @throws NoSuchFieldException Exception for not field find
+         */
+        public Option(String name) throws NoSuchFieldException {
+            field = name==null ? null : Compiler.class.getDeclaredField(name);
+        }
+        
+        /**
+         * Set the given value
+         * 
+         * @param val the value to set
+         */
         public void set(Object val) {
             if(field == null) return;
             try {
@@ -434,6 +487,12 @@ public abstract class Compiler implements Registers {
                 System.err.println(e);
             }
         }
+        
+        /**
+         * Get the value 
+         * 
+         * @return the value
+         */
         public Object get() {
             if(field == null) return null;
             try {
@@ -443,10 +502,19 @@ public abstract class Compiler implements Registers {
                 System.err.println(e); return null;
             }
         }
-        public Class<?> getType() { return field == null ? null : field.getType(); }
+        
+        /**
+         * Get class type
+         * 
+         * @return the class type
+         */
+        public Class<?> getType() { 
+            return field == null ? null : field.getType(); 
+        }
     }
 
-    private static String[] options = {
+    /** Program options table */
+    private static final String[] options = {
         "fastMem",          "Enable fast memory access - RuntimeExceptions will be thrown on faults",
         "nullPointerCheck", "Enables checking at runtime for null pointer accessses (slows things down a bit, only applicable with fastMem)",
         "maxInsnPerMethod", "Maximum number of MIPS instructions per java method (128 is optimal with Hotspot)",
@@ -467,11 +535,17 @@ public abstract class Compiler implements Registers {
         "singleFloat",      "Support single precision (32-bit) FP ops only"
     };
 
+    /**
+     * Get the option with that name 
+     * 
+     * @param name the name of option
+     * @return option
+     */
     private Option getOption(String name) {
         name = name.toLowerCase();
         try {
-            for(int i=0;i<options.length;i+=2)
-                if(options[i].toLowerCase().equals(name))
+            for (int i=0;i<options.length;i+=2)
+                if (options[i].toLowerCase().equals(name))
                     return new Option(options[i]);
             return null;
         } catch(NoSuchFieldException e) {
@@ -479,6 +553,11 @@ public abstract class Compiler implements Registers {
         }
     }
 
+    /**
+     * Parse string for options as key=value
+     * 
+     * @param opts the string for parse
+     */
     public void parseOptions(String opts) {
         if(opts == null || opts.length() == 0) return;
         StringTokenizer st = new StringTokenizer(opts,",");
@@ -486,7 +565,7 @@ public abstract class Compiler implements Registers {
             String tok = st.nextToken();
             String key;
             String val;
-            if(tok.indexOf("=") != -1) {
+            if(tok.contains("=")) {
                 key = tok.substring(0,tok.indexOf("="));
                 val = tok.substring(tok.indexOf("=")+1);
             } else if(tok.startsWith("no")) {
@@ -511,32 +590,47 @@ public abstract class Compiler implements Registers {
                     System.err.println("WARNING: " + val + " is not an integer");
                 }
             else if(opt.getType() == Boolean.TYPE)
-                opt.set(new Boolean(val.toLowerCase().equals("true")||val.toLowerCase().equals("yes")));
+                opt.set(val.toLowerCase().equals("true")||val.toLowerCase().equals("yes"));
             else
                 throw new Error("Unknown type: " + opt.getType());
         }
     }
 
+    /**
+     * Parse the string for integer
+     * 
+     * @param s the string
+     * @return the integer
+     */
     private static Integer parseInt(String s) {
         int mult = 1;
         s = s.toLowerCase();
-        if(!s.startsWith("0x") && s.endsWith("m")) { s = s.substring(0,s.length()-1); mult = 1024*1024; }
-        else if(!s.startsWith("0x") && s.endsWith("k")) { s = s.substring(0,s.length()-1); mult = 1024; }
+        if (!s.startsWith("0x") && s.endsWith("m")) { s = s.substring(0,s.length()-1); mult = 1024*1024; }
+        else if (!s.startsWith("0x") && s.endsWith("k")) { s = s.substring(0,s.length()-1); mult = 1024; }
         int n;
-        if(s.length() > 2 && s.startsWith("0x")) n = Integer.parseInt(s.substring(2),16);
+        if (s.length() > 2 && s.startsWith("0x")) n = Integer.parseInt(s.substring(2),16);
         else n = Integer.parseInt(s);
-        return new Integer(n*mult);
+        return n*mult;
     }
 
+    /**
+     * Warp and indent the string 
+     * 
+     * @param s string to format
+     * @param firstindent first indent size
+     * @param indent indent size
+     * @param width width to wrap
+     * @return 
+     */
     private static String wrapAndIndent(String s, int firstindent, int indent, int width) {
         StringTokenizer st = new StringTokenizer(s," ");
         StringBuffer sb = new StringBuffer();
-        for(int i=0;i<firstindent;i++)
+        for (int i=0;i<firstindent;i++)
             sb.append(' ');
         int sofar = 0;
-        while(st.hasMoreTokens()) {
+        while (st.hasMoreTokens()) {
             String tok = st.nextToken();
-            if(tok.length() + sofar + 1 > width && sofar > 0) {
+            if (tok.length() + sofar + 1 > width && sofar > 0) {
                 sb.append('\n');
                 for(int i=0;i<indent;i++) sb.append(' ');
                 sofar = 0;

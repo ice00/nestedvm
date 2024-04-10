@@ -18,17 +18,21 @@ import java.text.DateFormatSymbols;
  GCCLASS_HINT: org.ibex.nestedvm.util.Platform.<clinit> org.ibex.nestedvm.util.Platform$Jdk14.<init>
 */
 
+/**
+ * Java platform (static usage)
+ */
 public abstract class Platform {
     Platform() { }
     private static final Platform p;
 
+    // static initialization
     static {
         float version;
         try {
             if(getProperty("java.vm.name").equals("SableVM"))
                 version = 1.2f;
             else
-                version = Float.valueOf(getProperty("java.specification.version")).floatValue();
+                version = Float.parseFloat(getProperty("java.specification.version"));
         } catch(Exception e) {
             System.err.println("WARNING: " + e + " while trying to find jvm version -  assuming 1.1");
             version = 1.1f;
@@ -41,13 +45,19 @@ public abstract class Platform {
         else throw new Error("JVM Specification version: " + version + " is too old. (see org.ibex.util.Platform to add support)");
 
         try {
-            p = (Platform) Class.forName(Platform.class.getName() + "$" + platformClass).newInstance();
+            p = (Platform) Class.forName(Platform.class.getName() + "$" + platformClass).getDeclaredConstructor().newInstance();
         } catch(Exception e) {
             e.printStackTrace();
             throw new Error("Error instansiating platform class");
         }
     }
 
+    /**
+     * Get system property of given key
+     * 
+     * @param key the key of property
+     * @return the system property
+     */
     public static String getProperty(String key) {
         try {
             return System.getProperty(key);
@@ -88,6 +98,9 @@ public abstract class Platform {
     abstract File _getRoot(File f);
     public static File getRoot(File f) { return p._getRoot(f); }
 
+    /**
+     * JDK11 platform
+     */
     static class Jdk11 extends Platform {
         @Override
         boolean _atomicCreateFile(File f) throws IOException {
@@ -194,6 +207,9 @@ public abstract class Platform {
         }
     }
 
+    /**
+     * JDK12 platform
+     */
     static class Jdk12 extends Jdk11 {
         @Override
         boolean _atomicCreateFile(File f) throws IOException {
@@ -214,6 +230,9 @@ public abstract class Platform {
         File[] _listRoots() { return File.listRoots(); }
     }
 
+    /**
+     * JDK13 platform
+     */
     static class Jdk13 extends Jdk12 {
         @Override
         void _socketHalfClose(Socket s, boolean output) throws IOException {
@@ -226,7 +245,10 @@ public abstract class Platform {
             s.setKeepAlive(on);
         }
     }
-
+    
+    /**
+     * JDK14 platform
+     */
     static class Jdk14 extends Jdk13 {
         @Override
         InetAddress _inetAddressFromBytes(byte[] a) throws UnknownHostException { return InetAddress.getByAddress(a); }

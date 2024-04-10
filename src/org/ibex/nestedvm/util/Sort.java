@@ -1,18 +1,71 @@
 package org.ibex.nestedvm.util;
 
+/**
+ * Sort with a QuickSort with Insertion Sort ont short list (6 elements)
+ */
 public final class Sort {
     private Sort() { }
 
-    public interface Comparable { public int compareTo(Object o); }
-    public interface CompareFunc { public int compare(Object a, Object b); }
+    /**
+     * Comparable interface
+     */
+    public interface Comparable { 
+        /**
+         * Compare to the given object
+         * 
+         * @param o the object to compare
+         * @return the compare value
+         */
+        public int compareTo(Object o); 
+    }
+    
+    /**
+     * Compare function interface
+     */
+    public interface CompareFunc { 
+        /**
+         * Compare two objects
+         * 
+         * @param a first object
+         * @param b second object
+         * @return the compare value
+         */
+        public int compare(Object a, Object b);
+    }
 
-    private static final CompareFunc comparableCompareFunc = new CompareFunc() {
-        public int compare(Object a,Object b) { return ((Comparable)a).compareTo(b); }
+    /** Compare function */
+    private static final CompareFunc comparableCompareFunc = new CompareFunc() {        
+        @Override
+        public int compare(Object a,Object b) { 
+            return ((Comparable)a).compareTo(b); 
+        }
     };
 
+    /**
+     * Sort the given objects with a standard comparable function
+     * 
+     * @param a the objects to sort
+     */
     public static void sort(Comparable[] a) { sort(a,comparableCompareFunc); }
-    public static void sort(Object[] a, CompareFunc c) { sort(a,c,0,a.length-1); }
+    
+    /**
+     * Sort the objects with the given comparable function
+     * 
+     * @param a the objects to sort
+     * @param c the comparable function
+     */
+    public static void sort(Object[] a, CompareFunc c) { 
+        sort(a,c,0,a.length-1); 
+    }
 
+    /**
+     * Ricorsive QuicoSort/Insertion Sort
+     * 
+     * @param a objects to sort
+     * @param c the comparable function
+     * @param start starting position of sort
+     * @param end ending position of sort
+     */
     private static void sort(Object[] a, CompareFunc c, int start, int end) {
         Object tmp;
         if(start >= end) return;

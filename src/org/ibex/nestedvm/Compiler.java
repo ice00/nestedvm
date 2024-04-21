@@ -4,11 +4,24 @@
 
 package org.ibex.nestedvm;
 
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.*;
-import java.io.*;
+import org.ibex.nestedvm.util.ELF;
+import org.ibex.nestedvm.util.Seekable;
 
-import org.ibex.nestedvm.util.*;
 
+
+/**
+ * Abstractr compiler
+ */
 public abstract class Compiler implements Registers {
     /** The ELF binary being read */
     ELF elf;
@@ -33,16 +46,24 @@ public abstract class Compiler implements Registers {
     // NOTE: This value can be much higher without breaking the classfile
     // specs (around 1024) but Hotstop seems to do much better with smaller
     // methods.
+    /** Max instructions per Mips in a method */
     int maxInsnPerMethod = 128;
 
     // non-configurable
     int maxBytesPerMethod;
     int methodMask;
     int methodShift;
+    
+    /**
+     * Initialize the max Mips instruction per method (that must be a power of two)
+     * 
+     * @throws org.ibex.nestedvm.Compiler.Exn In case of not power of two
+     */
     void maxInsnPerMethodInit() throws Exn {
         if((maxInsnPerMethod&(maxInsnPerMethod-1)) != 0) throw new Exn("maxBytesPerMethod is not a power of two");
         maxBytesPerMethod = maxInsnPerMethod*4;
         methodMask = ~(maxBytesPerMethod-1);
+        
         while(maxBytesPerMethod>>>methodShift != 1) methodShift++;
     }
 
@@ -64,8 +85,10 @@ public abstract class Compiler implements Registers {
 
     boolean nullPointerCheck = false;
 
+    /** Runtime class (of nestedvm) */
     String runtimeClass = "org.ibex.nestedvm.Runtime";
 
+    /**Hashtable class (of java) */
     String hashClass = "java.util.Hashtable";
 
     boolean unixRuntime;
@@ -74,11 +97,20 @@ public abstract class Compiler implements Registers {
 
     boolean singleFloat;
 
+    /** Size of a page */
     int pageSize = 4096;
+    
+    /** Total number of pages */
     int totalPages = 65536;
+    
     int pageShift;
     boolean onePage;
 
+    /**
+     * Initialize the total pages with the givenm size (all must be power of two)
+     *
+     *@throws org.ibex.nestedvm.Compiler.Exn In case of not power of two
+     */
     void pageSizeInit() throws Exn {
         if((pageSize&(pageSize-1)) != 0) throw new Exn("pageSize not a multiple of two");
         if((totalPages&(totalPages-1)) != 0) throw new Exn("totalPages not a multiple of two");
@@ -91,12 +123,16 @@ public abstract class Compiler implements Registers {
     /** Some important symbols */
     ELF.Symbol userInfo, gp;
 
+    /**
+     * Show usage of the compiler in the error default stream and exit from program
+     */
     private static void usage() {
         System.err.println("Usage: java Compiler [-outfile output.java] [-o options] [-dumpoptions] <classname> <binary.mips>");
         System.err.println("-o takes mount(8) like options and can be specified multiple times");
         System.err.println("Available options:");
-        for(int i=0;i<options.length;i+=2)
+        for(int i=0;i<options.length;i+=2) {
             System.err.print(options[i] + ": " + wrapAndIndent(options[i+1],18-2-options[i].length(),18,62));
+        }
         System.exit(1);
     }
 
@@ -150,11 +186,13 @@ public abstract class Compiler implements Registers {
         }
         if(className == null || mipsBinaryFileName == null) usage();
 
+        // mips binary file to compile
         Seekable mipsBinary = new Seekable.File(mipsBinaryFileName);
 
         Writer w = null;
         OutputStream os = null;
         Compiler comp = null;
+        
         if (outformat == null || outformat.equals("class")) {
             if(outfile != null) {
                 os = new FileOutputStream(outfile);
@@ -170,7 +208,7 @@ public abstract class Compiler implements Registers {
                 System.err.println("Refusing to write a classfile to stdout - use -outfile foo.class");
                 System.exit(1);
             }
-        } else if(outformat.equals("javasource") || outformat .equals("java")) {
+        } else if(outformat.equals("javasource") || outformat.equals("java")) {
             w = outfile == null ? new OutputStreamWriter(System.out): new FileWriter(outfile);
             comp = new JavaSourceCompiler(mipsBinary,className,w);
         } else {
@@ -215,11 +253,22 @@ public abstract class Compiler implements Registers {
         if(elf.ident.data != ELF.ELFDATA2MSB) throw new IOException("Binary is not big endian");
     }
 
+    /**
+     * Go in compilation (implementation)
+     * 
+     * @throws org.ibex.nestedvm.Compiler.Exn In case of compilation error
+     * @throws IOException In case of IO read error
+     */
     abstract void _go() throws Exn, IOException;
 
     private boolean used;
     
-    
+    /**
+     * Go in compilation 
+     * 
+     * @throws org.ibex.nestedvm.Compiler.Exn In case of compilation error
+     * @throws IOException In case of IO read error
+     */
     public void go() throws Exn, IOException {
         if (used) throw new RuntimeException("Compiler instances are good for one shot only");
         used = true;
@@ -230,6 +279,7 @@ public abstract class Compiler implements Registers {
         if(totalPages == 1 && !onePage) throw new Exn("totalPages == 1 and onePage is not set");
         if(onePage) totalPages = 1;
 
+        // init compiler
         maxInsnPerMethodInit();
         pageSizeInit();
 
@@ -283,6 +333,14 @@ public abstract class Compiler implements Registers {
         _go();
     }
 
+    /**
+     * Determine if the given section is empty
+     * 
+     * @param elf the elf being compiled
+     * @param sectionIndex the index of the section
+     * @return true if section is empty
+     * @throws IOException In case of IO error
+     */
     protected boolean isSectionEmpty(ELF elf, int sectionIndex) throws IOException {
         InputStream in = elf.sheaders[sectionIndex].getInputStream();
         try {
@@ -299,6 +357,12 @@ public abstract class Compiler implements Registers {
         }
     }
 
+    /**
+     * Find branches in symbol table
+     * 
+     * @param symtab the symbols table
+     * @param jumps the jumps table (where brenches will be added)
+     */
     private void findBranchesInSymtab(ELF.Symtab symtab, Hashtable<Integer,Boolean> jumps) {
         ELF.Symbol[] symbols = symtab.symbols;
         int n=0;
@@ -314,6 +378,15 @@ public abstract class Compiler implements Registers {
         if(printStats) System.err.println("Found " + n + " additional possible branch targets in Symtab");
     }
 
+    /**
+     * Find branches in text 
+     * 
+     * @param base the base
+     * @param dis the stream to disassembly
+     * @param size the size
+     * @param jumps the jumps table (where brenches will be added)
+     * @throws IOException In case of IO error
+     */
     @SuppressWarnings("fallthrough")
     private void findBranchesInText(int base, DataInputStream dis, int size, Hashtable<Integer,Boolean> jumps) throws IOException {
         int count = size/4;
@@ -402,6 +475,16 @@ public abstract class Compiler implements Registers {
         if(printStats) System.err.println("Found " + n + " additional possible branch targets in Text segment");
     }
 
+    /**
+     * Find branches in data
+     * 
+     * @param dis the stream to disassembly
+     * @param size the size
+     * @param jumps table of jumps (where brenches will be added)
+     * @param textStart start of text
+     * @param textEnd end of text
+     * @throws IOException In case of IO error
+     */
     private void findBranchesInData(DataInputStream dis, int size, Hashtable<Integer,Boolean> jumps, int textStart, int textEnd) throws IOException {
         int count = size/4;
         int n=0;
@@ -620,7 +703,7 @@ public abstract class Compiler implements Registers {
      * @param firstindent first indent size
      * @param indent indent size
      * @param width width to wrap
-     * @return 
+     * @return the resulting formatted string
      */
     private static String wrapAndIndent(String s, int firstindent, int indent, int width) {
         StringTokenizer st = new StringTokenizer(s," ");

@@ -4,10 +4,19 @@
 
 package org.ibex.nestedvm;
 
-import java.io.*;
+import java.io.DataInputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.io.File;
+import java.io.IOException;
+import org.ibex.classgen.CGConst;
+import org.ibex.classgen.MethodGen;
+import org.ibex.classgen.ClassFile;
+import org.ibex.classgen.Type;
+import org.ibex.nestedvm.util.ELF;
+import org.ibex.nestedvm.util.Seekable;
 
-import org.ibex.nestedvm.util.*;
-import org.ibex.classgen.*;
+
 
 // FEATURE: Eliminate unnecessary use of SWAP
 // FEATURE: Put regs in low (<=3) local vars, small classfile size

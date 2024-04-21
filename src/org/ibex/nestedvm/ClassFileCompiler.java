@@ -451,7 +451,7 @@ public class ClassFileCompiler extends Compiler implements CGConst  {
     private MethodGen.PhantomTarget[] insnTargets; // the targets for each jumpable instruction
     private MethodGen mg; // the method itself
 
-    private boolean jumpable(int addr) { return jumpableAddresses.get(new Integer(addr)) != null; }
+    private boolean jumpable(int addr) { return jumpableAddresses.get(addr) != null; }
 
     private static final int UNREACHABLE = 1;
     private static final int SKIP_NEXT = 2;
@@ -548,7 +548,7 @@ public class ClassFileCompiler extends Compiler implements CGConst  {
             mg.add(LDC,firstAddrOfNext);
             setPC();
             // mark the start of the next method as jumpable
-            jumpableAddresses.put(new Integer(firstAddrOfNext),Boolean.TRUE);
+            jumpableAddresses.put(firstAddrOfNext,Boolean.TRUE);
         }
 
         returnTarget.setTarget(mg.size());
@@ -629,7 +629,7 @@ public class ClassFileCompiler extends Compiler implements CGConst  {
         //System.err.println("Delay slot is jumpable - This code is untested + " + toHex(nextInsn));
         if(pc+4==endOfMethod) {
             // the delay slot is at the start of the next method
-            jumpableAddresses.put(new Integer(pc+8),Boolean.TRUE); // make the 2nd insn of the next method jumpable
+            jumpableAddresses.put(pc+8,Boolean.TRUE); // make the 2nd insn of the next method jumpable
             branch(pc,pc+8); // jump over it
             //System.err.println("delay slot: " + toHex(pc+8)); */
             //unreachable = true;
@@ -648,9 +648,9 @@ public class ClassFileCompiler extends Compiler implements CGConst  {
         }
     }
 
-    private static final Float POINT_5_F = new Float(0.5f);
-    private static final Double POINT_5_D = new Double(0.5f);
-    private static final Long FFFFFFFF = new Long(0xffffffffL);
+    private static final Float POINT_5_F = 0.5f;
+    private static final Double POINT_5_D = Double.valueOf(0.5f);
+    private static final Long FFFFFFFF = 0xffffffffL;
 
     private int emitInstruction(int pc, int insn, int nextInsn) throws Exn {
         MethodGen mg = this.mg; // smaller bytecode
@@ -1131,7 +1131,7 @@ public class ClassFileCompiler extends Compiler implements CGConst  {
             mg.add(LDC,FFFFFFFF);
             mg.add(LAND);
             // Yes, this is correct, you have to sign extend the immediate then do an UNSIGNED comparison
-            mg.add(LDC,new Long(signedImmediate&0xffffffffL));
+            mg.add(LDC, signedImmediate&0xffffffffL);
             mg.add(LCMP);
 
             b1 = mg.add(IFLT);

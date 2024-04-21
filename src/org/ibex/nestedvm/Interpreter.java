@@ -761,7 +761,7 @@ public class Interpreter extends UnixRuntime implements Cloneable {
     private java.util.HashMap<Integer,String> sourceLineCache;
     public String sourceLine(int pc) {
         final String addr2line = "mips-unknown-elf-addr2line";
-        String line = sourceLineCache == null ? null : sourceLineCache.get(new Integer(pc));
+        String line = sourceLineCache == null ? null : sourceLineCache.get(pc);
         if(line != null) return line;
         if(image==null) return null;
         try {
@@ -770,7 +770,7 @@ public class Interpreter extends UnixRuntime implements Cloneable {
             if(line == null) return null;
             while(line.startsWith("../")) line = line.substring(3);
             if(sourceLineCache == null) sourceLineCache = new java.util.HashMap<>();
-            sourceLineCache.put(new Integer(pc),line);
+            sourceLineCache.put(pc,line);
             return line;
         } catch(IOException e) {
             return null;

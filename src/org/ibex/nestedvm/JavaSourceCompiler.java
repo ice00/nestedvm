@@ -251,8 +251,8 @@ public class JavaSourceCompiler extends Compiler {
         if(target >= 4096 && lessConstants) {
             int n = target & ~1023;
             String var = "N_" + toHex8(n);
-            if(relativeAddrs.get(new Integer(n)) == null) {
-                relativeAddrs.put(new Integer(n),Boolean.TRUE);
+            if(relativeAddrs.get(n) == null) {
+                relativeAddrs.put(n,Boolean.TRUE);
                 classLevel.append(indents[1] + "private static int " + var + " = " + toHex(n) + ";\n");
             }
             return "(" + var + " + " + toHex(target - n) + ")";
@@ -293,7 +293,7 @@ public class JavaSourceCompiler extends Compiler {
             insn = nextInsn;
             nextInsn = (i == count-1) ? -1 : dis.readInt();
             if(addr >= endOfMethod) { endMethod(); startMethod(addr); }
-            if(jumpableAddresses==null || addr == startOfMethod || jumpableAddresses.get(new Integer(addr)) != null) {
+            if(jumpableAddresses==null || addr == startOfMethod || jumpableAddresses.get(addr) != null) {
                 p("case " + toHex(addr) + ":");
                 unreachable = false;
             } else if(unreachable) {

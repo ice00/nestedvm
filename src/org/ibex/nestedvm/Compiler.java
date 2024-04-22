@@ -13,14 +13,31 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.util.*;
+import java.util.Date;
+import java.util.Hashtable;
+import java.util.StringTokenizer;
 import org.ibex.nestedvm.util.ELF;
+import static org.ibex.nestedvm.util.Mips.OPC_ADDIU;
+import static org.ibex.nestedvm.util.Mips.OPC_BEQ;
+import static org.ibex.nestedvm.util.Mips.OPC_BGTZ;
+import static org.ibex.nestedvm.util.Mips.OPC_BLEZ;
+import static org.ibex.nestedvm.util.Mips.OPC_BNE;
+import static org.ibex.nestedvm.util.Mips.OPC_BRANCH;
+import static org.ibex.nestedvm.util.Mips.OPC_J;
+import static org.ibex.nestedvm.util.Mips.OPC_JAL;
+import static org.ibex.nestedvm.util.Mips.OPC_R_TYPE;
+import static org.ibex.nestedvm.util.Mips.OP_FPU;
+import static org.ibex.nestedvm.util.Mips.OP_LUI;
+import static org.ibex.nestedvm.util.Mips.RT_BRANCH_BGEZ;
+import static org.ibex.nestedvm.util.Mips.RT_BRANCH_BGEZAL;
+import static org.ibex.nestedvm.util.Mips.RT_BRANCH_BLTZ;
+import static org.ibex.nestedvm.util.Mips.RT_BRANCH_BLTZAL;
+import static org.ibex.nestedvm.util.Mips.SUB_R_TYP_JALR;
+import static org.ibex.nestedvm.util.Mips.SUB_R_TYP_SYSCALL;
 import org.ibex.nestedvm.util.Seekable;
 
-
-
 /**
- * Abstractr compiler
+ * Abstract compiler
  */
 public abstract class Compiler implements Registers {
     /** The ELF binary being read */
@@ -35,11 +52,16 @@ public abstract class Compiler implements Registers {
 
     /** Thrown when the compilation fails for some reason */
     @SuppressWarnings("serial")
-    static class Exn extends Exception { public Exn(String s) { super(s); } }
+    static class Exn extends Exception { 
+        public Exn(String s) {
+            super(s); 
+        } 
+    }
 
     // Set this to true to enable fast memory access
     // When this is enabled a Java RuntimeException will be thrown when a page fault occures. When it is disabled
     // a FaultException will be throw which is easier to catch and deal with, however. as the name implies, this is slower
+    /** Fast memory access */
     boolean fastMem = true;
 
     // This MUST be a power of two. If it is not horrible things will happen
@@ -68,17 +90,21 @@ public abstract class Compiler implements Registers {
     }
 
     // True to try to determine which case statement are needed and only include them
+    /** Include only case statement that are needed */
     boolean pruneCases = true;
 
     boolean assumeTailCalls = true;
 
     // True to insert some code in the output to help diagnore compiler problems
+    /** Activate debug (output) compilation messages */
     boolean debugCompiler = false;
 
     // True to print various statistics about the compilation
+    /** Activate print statistics about the compilation */
     boolean printStats = false;
 
     // True to generate runtime statistics that slow execution down significantly
+    /** Activate runhtime statistics (slow down execution) */
     boolean runtimeStats = false;
 
     boolean supportCall = true;
@@ -112,9 +138,9 @@ public abstract class Compiler implements Registers {
      *@throws org.ibex.nestedvm.Compiler.Exn In case of not power of two
      */
     void pageSizeInit() throws Exn {
-        if((pageSize&(pageSize-1)) != 0) throw new Exn("pageSize not a multiple of two");
-        if((totalPages&(totalPages-1)) != 0) throw new Exn("totalPages not a multiple of two");
-        while(pageSize>>>pageShift != 1) pageShift++;
+        if ((pageSize&(pageSize-1)) != 0) throw new Exn("pageSize not a multiple of two");
+        if ((totalPages&(totalPages-1)) != 0) throw new Exn("totalPages not a multiple of two");
+        while (pageSize>>>pageShift != 1) pageShift++;
     }
 
     /** A set of all addresses that can be jumped too (only available if pruneCases == true) */
@@ -130,7 +156,7 @@ public abstract class Compiler implements Registers {
         System.err.println("Usage: java Compiler [-outfile output.java] [-o options] [-dumpoptions] <classname> <binary.mips>");
         System.err.println("-o takes mount(8) like options and can be specified multiple times");
         System.err.println("Available options:");
-        for(int i=0;i<options.length;i+=2) {
+        for (int i=0; i<options.length; i+=2) {
             System.err.print(options[i] + ": " + wrapAndIndent(options[i+1],18-2-options[i].length(),18,62));
         }
         System.exit(1);
@@ -184,7 +210,7 @@ public abstract class Compiler implements Registers {
             }
             arg++;
         }
-        if(className == null || mipsBinaryFileName == null) usage();
+        if (className == null || mipsBinaryFileName == null) usage();
 
         // mips binary file to compile
         Seekable mipsBinary = new Seekable.File(mipsBinaryFileName);
@@ -193,8 +219,8 @@ public abstract class Compiler implements Registers {
         OutputStream os = null;
         Compiler comp = null;
         
-        if (outformat == null || outformat.equals("class")) {
-            if(outfile != null) {
+        if (null == outformat) {
+            if (outfile != null) {
                 os = new FileOutputStream(outfile);
                 comp = new ClassFileCompiler(mipsBinary,className,os);
             } else if(outdir != null) {
@@ -208,20 +234,38 @@ public abstract class Compiler implements Registers {
                 System.err.println("Refusing to write a classfile to stdout - use -outfile foo.class");
                 System.exit(1);
             }
-        } else if(outformat.equals("javasource") || outformat.equals("java")) {
-            w = outfile == null ? new OutputStreamWriter(System.out): new FileWriter(outfile);
-            comp = new JavaSourceCompiler(mipsBinary,className,w);
-        } else {
-            System.err.println("Unknown output format: " + outformat);
-            System.exit(1);
+        } else switch (outformat) {
+            case "class":
+                if (outfile != null) {
+                    os = new FileOutputStream(outfile);
+                    comp = new ClassFileCompiler(mipsBinary,className,os);
+                } else if(outdir != null) {
+                    File f = new File(outdir);
+                    if(!f.isDirectory()) {
+                        System.err.println(outdir + " doesn't exist or is not a directory");
+                        System.exit(1);
+                    }
+                    comp = new ClassFileCompiler(mipsBinary,className,f);
+                } else {
+                    System.err.println("Refusing to write a classfile to stdout - use -outfile foo.class");
+                    System.exit(1);
+                }   break;
+            case "javasource":
+            case "java":
+                w = outfile == null ? new OutputStreamWriter(System.out): new FileWriter(outfile);
+                comp = new JavaSourceCompiler(mipsBinary,className,w);
+                break;
+            default:
+                System.err.println("Unknown output format: " + outformat);
+                System.exit(1);
         }
 
         comp.parseOptions(o);
         comp.setSource(mipsBinaryFileName);
 
-        if(dumpOptions) {
+        if (dumpOptions) {
             System.err.println("== Options ==");
-            for(int i=0;i<options.length;i+=2)
+            for (int i=0; i<options.length; i+=2)
                 System.err.println(options[i] + ": " + comp.getOption(options[i]).get());
             System.err.println("== End Options ==");
         }
@@ -248,9 +292,9 @@ public abstract class Compiler implements Registers {
         this.fullClassName = fullClassName;
         elf = new ELF(binary);
 
-        if(elf.header.type != ELF.ET_EXEC) throw new IOException("Binary is not an executable");
-        if(elf.header.machine != ELF.EM_MIPS) throw new IOException("Binary is not for the MIPS I Architecture");
-        if(elf.ident.data != ELF.ELFDATA2MSB) throw new IOException("Binary is not big endian");
+        if (elf.header.type != ELF.ET_EXEC) throw new IOException("Binary is not an executable");
+        if (elf.header.machine != ELF.EM_MIPS) throw new IOException("Binary is not for the MIPS I Architecture");
+        if (elf.ident.data != ELF.ELFDATA2MSB) throw new IOException("Binary is not big endian");
     }
 
     /**
@@ -273,11 +317,11 @@ public abstract class Compiler implements Registers {
         if (used) throw new RuntimeException("Compiler instances are good for one shot only");
         used = true;
 
-        if(onePage && pageSize <= 4096) pageSize = 4*1024*1024;
-        if(nullPointerCheck && !fastMem) throw new Exn("fastMem must be enabled for nullPointerCheck to be of any use");
-        if(onePage && !fastMem) throw new Exn("fastMem must be enabled for onePage to be of any use");
-        if(totalPages == 1 && !onePage) throw new Exn("totalPages == 1 and onePage is not set");
-        if(onePage) totalPages = 1;
+        if (onePage && pageSize <= 4096) pageSize = 4*1024*1024;
+        if (nullPointerCheck && !fastMem) throw new Exn("fastMem must be enabled for nullPointerCheck to be of any use");
+        if (onePage && !fastMem) throw new Exn("fastMem must be enabled for onePage to be of any use");
+        if (totalPages == 1 && !onePage) throw new Exn("totalPages == 1 and onePage is not set");
+        if (onePage) totalPages = 1;
 
         // init compiler
         maxInsnPerMethodInit();
@@ -287,47 +331,57 @@ public abstract class Compiler implements Registers {
         ELF.Symtab symtab = elf.getSymtab();
         if(symtab == null) throw new Exn("Binary has no symtab (did you strip it?)");
 
+        // Looks for the Global Pointer
         userInfo = symtab.getSymbol("user_info");
         gp = symtab.getSymbol("_gp");
-        if(gp == null) throw new Exn("no _gp symbol (did you strip the binary?)");
+        if (gp == null) throw new Exn("no _gp symbol (did you strip the binary?)");
 
-        if(pruneCases) {
+        // Search for cases statement that are used, by compiling a list of jumpable addresses
+        if (pruneCases) {
             // Find all possible branches
             jumpableAddresses = new Hashtable<>();
 
             jumpableAddresses.put(elf.header.entry, Boolean.TRUE);
 
             ELF.SHeader text = elf.sectionWithName(".text");
-            if(text == null) throw new Exn("No .text segment");
+            if (text == null) throw new Exn("No .text segment");
 
             findBranchesInSymtab(symtab,jumpableAddresses);
 
             for (ELF.SHeader sheader : elf.sheaders) {
                 String name = sheader.name;
                 // if this section doesn't get loaded into our address space don't worry about it
-                if(sheader.addr == 0x0) continue;
-                if(name.equals(".MIPS.abiflags")) continue;
-                if(name.equals(".data") || name.equals(".sdata") || name.equals(".rodata") || name.equals(".ctors") || name.equals(".dtors"))
-                    findBranchesInData(new DataInputStream(sheader.getInputStream()),sheader.size,jumpableAddresses,text.addr,text.addr+text.size);
+                if (sheader.addr == 0x0) continue;
+                if (name.equals(".MIPS.abiflags")) continue;
+                if (name.equals(".data") || name.equals(".sdata") || 
+                   name.equals(".rodata") || name.equals(".ctors") || 
+                   name.equals(".dtors"))
+                    findBranchesInData(new DataInputStream(sheader.getInputStream()),
+                                       sheader.size, jumpableAddresses,
+                                       text.addr, text.addr+text.size);
             }
 
-            findBranchesInText(text.addr,new DataInputStream(text.getInputStream()),text.size,jumpableAddresses);
+            findBranchesInText(text.addr, new DataInputStream(text.getInputStream()),
+                               text.size, jumpableAddresses);
         }
 
-        if(unixRuntime && runtimeClass.startsWith("org.ibex.nestedvm.")) runtimeClass = "org.ibex.nestedvm.UnixRuntime";
+        if (unixRuntime && runtimeClass.startsWith("org.ibex.nestedvm.")) runtimeClass = "org.ibex.nestedvm.UnixRuntime";
 
+        // Be sure to have right MIPS sections
         for(int i=0;i<elf.sheaders.length;i++) {
             String name = elf.sheaders[i].name;
             // Allow .rel.dyn if it's empty
-            if(name.equals(".rel.dyn") && isSectionEmpty(elf, i))
+            if (name.equals(".rel.dyn") && isSectionEmpty(elf, i))
                 continue;
 
             // ignore .MIPS.abiflags
-            if(name.equals(".MIPS.abiflags")) continue;
+            if (name.equals(".MIPS.abiflags")) continue;
 
-            if((elf.sheaders[i].flags & ELF.SHF_ALLOC) !=0 && !(
-                name.equals(".text")|| name.equals(".data") || name.equals(".sdata") || name.equals(".rodata") ||
-                name.equals(".ctors") || name.equals(".dtors") || name.equals(".bss") || name.equals(".sbss")))
+            if ((elf.sheaders[i].flags & ELF.SHF_ALLOC) !=0 && !(
+                name.equals(".text")|| name.equals(".data") || 
+                name.equals(".sdata") || name.equals(".rodata") ||
+                name.equals(".ctors") || name.equals(".dtors") || 
+                name.equals(".bss") || name.equals(".sbss")))
                     throw new Exn("Unknown section: " + name);
         }
         _go();
@@ -368,13 +422,14 @@ public abstract class Compiler implements Registers {
         int n=0;
         
         for (ELF.Symbol s : symbols) {
-            if(s.type == ELF.Symbol.STT_FUNC) {
-                if (jumps.put(s.addr,Boolean.TRUE) == null) {
+            if (s.type == ELF.Symbol.STT_FUNC) {
+                if (jumps.put(s.addr, Boolean.TRUE) == null) {
                     //System.err.println("Adding symbol from symtab: " + s.name + " at " + toHex(s.addr));
                     n++;
                 }
             }
         }
+        
         if(printStats) System.err.println("Found " + n + " additional possible branch targets in Symtab");
     }
 
@@ -396,7 +451,7 @@ public abstract class Compiler implements Registers {
         int[] lui_pc = new int[32];
         //Interpreter inter = new Interpreter(source);
 
-        for(int i=0;i<count;i++,pc+=4) {
+        for(int i=0; i<count; i++, pc+=4) {
             int insn = dis.readInt();
             int op = (insn >>> 26) & 0xff;
             int rs = (insn >>> 21) & 0x1f;
@@ -408,45 +463,45 @@ public abstract class Compiler implements Registers {
             int subcode = insn & 0x3f;
 
             switch(op) {
-                case 0:
+                case OPC_R_TYPE:
                     switch(subcode) {
-                        case 9: // JALR
-                            if(jumps.put(pc+8,Boolean.TRUE) == null) n++; // return address
+                        case SUB_R_TYP_JALR: // JALR (Jump and Link Register)
+                            if (jumps.put(pc+8, Boolean.TRUE) == null) n++; // return address
                             break;
-                        case 12: // SYSCALL
-                            if(jumps.put(pc+4,Boolean.TRUE) == null) n++;
+                        case SUB_R_TYP_SYSCALL: // SYSCALL
+                            if (jumps.put(pc+4, Boolean.TRUE) == null) n++;
                             break;
                     }
                     break;
-                case 1:
+                case OPC_BRANCH:
                     switch(rt) {
-                        case 16: // BLTZAL
-                        case 17: // BGTZAL
-                            if(jumps.put(pc+8,Boolean.TRUE) == null) n++; // return address
+                        case RT_BRANCH_BLTZAL: // BLTZAL (Branch on Less Than Zero and Link)
+                        case RT_BRANCH_BGEZAL: // BGTZAL (Branch on Greater Than Zero and Link)
+                            if (jumps.put(pc+8, Boolean.TRUE) == null) n++; // return address
                             // fall through
-                        case 0: // BLTZ
-                        case 1: // BGEZ
-                            if(jumps.put(pc+branchTarget*4+4,Boolean.TRUE) == null) n++;
+                        case RT_BRANCH_BLTZ: // BLTZ (Branch on Less Than Zero)
+                        case RT_BRANCH_BGEZ: // BGEZ (Branch on Greater That Zero)
+                            if (jumps.put(pc+branchTarget*4+4, Boolean.TRUE) == null) n++;
                             break;
                     }
                     break;
-                case 3: // JAL
-                    if(jumps.put(pc+8,Boolean.TRUE) == null) n++; // return address
+                case OPC_JAL:  // JAL   (Jump and Link)
+                    if (jumps.put(pc+8, Boolean.TRUE) == null) n++; // return address
                     // fall through
-                case 2: // J
-                    if(jumps.put((pc&0xf0000000)|(jumpTarget << 2),Boolean.TRUE) == null) n++;
+                case OPC_J:    // J     (Jump)
+                    if (jumps.put((pc&0xf0000000)|(jumpTarget << 2), Boolean.TRUE) == null) n++;
                     break;
-                case 4: // BEQ
-                case 5: // BNE
-                case 6: // BLEZ
-                case 7: // BGTZ
-                    if(jumps.put(pc+branchTarget*4+4,Boolean.TRUE) == null) n++;
+                case OPC_BEQ:  // BEQ   (Branch on equal)
+                case OPC_BNE:  // BNE   (Branch on not equal)
+                case OPC_BLEZ: // BLEZ  (Branch on Less Than or Equal to Zero)
+                case OPC_BGTZ: // BGTZ  (Branch on Greater Than Zero)
+                    if (jumps.put(pc+branchTarget*4+4, Boolean.TRUE) == null) n++;
                     break;
-                case 9: { // ADDIU
-                    if(pc - lui_pc[rs] <= 4*32) {
+                case OPC_ADDIU: { // ADDIU (add immediate unsigned)
+                    if (pc - lui_pc[rs] <= 4*32) {
                         int t = (lui_val[rs]<<16)+signedImmediate;
-                        if((t&3)==0 && t >= base && t < base+size) {
-                            if(jumps.put(t,Boolean.TRUE) == null) {
+                        if ((t&3)==0 && t >= base && t < base+size) {
+                            if (jumps.put(t, Boolean.TRUE) == null) {
                                 //System.err.println("Possible jump to " + toHex(t) + " (" + inter.sourceLine(t) + ") from " + toHex(pc) + " (" + inter.sourceLine(pc) + ")");
                                 n++;
                             }
@@ -456,23 +511,24 @@ public abstract class Compiler implements Registers {
                     }
                     break;
                 }
-                case 15: { // LUI
+                case OP_LUI: { // LUI (load upper immediate)
                     lui_val[rt] = unsignedImmediate;
                     lui_pc[rt] = pc;
                     break;
                 }
 
-                case 17: // FPU Instructions
+                case OP_FPU: // FPU Instructions
                     switch(rs) {
                         case 8: // BC1F, BC1T
-                            if(jumps.put(pc+branchTarget*4+4,Boolean.TRUE) == null) n++;
+                            if (jumps.put(pc+branchTarget*4+4, Boolean.TRUE) == null) n++;
                             break;
                     }
                     break;
             }
         }
         dis.close();
-        if(printStats) System.err.println("Found " + n + " additional possible branch targets in Text segment");
+        
+        if (printStats) System.err.println("Found " + n + " additional possible branch targets in Text segment");
     }
 
     /**
@@ -490,7 +546,7 @@ public abstract class Compiler implements Registers {
         int n=0;
         for (int i=0;i<count;i++) {
             int word = dis.readInt();
-            if((word&3)==0 && word >= textStart && word < textEnd) {
+            if ((word&3)==0 && word >= textStart && word < textEnd) {
                 if (jumps.put(word,Boolean.TRUE) == null) {
                     //System.err.println("Added " + toHex(word) + " as possible branch target (fron data segment)");
                     n++;
@@ -498,7 +554,7 @@ public abstract class Compiler implements Registers {
             }
         }
         dis.close();
-        if(n>0 && printStats) System.err.println("Found " + n + " additional possible branch targets in Data segment");
+        if (n>0 && printStats) System.err.println("Found " + n + " additional possible branch targets in Data segment");
     }
 
     // Helper functions for pretty output
@@ -520,7 +576,7 @@ public abstract class Compiler implements Registers {
     final static String toHex8(int n) {
         String s = Long.toString(n & 0xffffffffL, 16);
         StringBuffer sb = new StringBuffer("0x");
-        for (int i=8-s.length();i>0;i--) sb.append('0');
+        for (int i=8-s.length(); i>0; i--) sb.append('0');
         sb.append(s);
         return sb.toString();
     }
@@ -533,7 +589,7 @@ public abstract class Compiler implements Registers {
      */
     final static String toOctal3(int n) {
         char[] buf = new char[3];
-        for (int i=2;i>=0;i--) {
+        for (int i=2; i>=0; i--) {
             buf[i] = (char) ('0' + (n & 7));
             n >>= 3;
         }
@@ -562,7 +618,7 @@ public abstract class Compiler implements Registers {
          * @param val the value to set
          */
         public void set(Object val) {
-            if(field == null) return;
+            if (field == null) return;
             try {
                 /*field.setAccessible(true); NOT in JDK 1.1 */
                 field.set(Compiler.this,val);
@@ -577,7 +633,7 @@ public abstract class Compiler implements Registers {
          * @return the value
          */
         public Object get() {
-            if(field == null) return null;
+            if (field == null) return null;
             try {
                 /*field.setAccessible(true); NOT in JDK 1.1 */
                 return field.get(Compiler.this);
@@ -642,13 +698,13 @@ public abstract class Compiler implements Registers {
      * @param opts the string for parse
      */
     public void parseOptions(String opts) {
-        if(opts == null || opts.length() == 0) return;
+        if (opts == null || opts.length() == 0) return;
         StringTokenizer st = new StringTokenizer(opts,",");
-        while(st.hasMoreElements()) {
+        while (st.hasMoreElements()) {
             String tok = st.nextToken();
             String key;
             String val;
-            if(tok.contains("=")) {
+            if (tok.contains("=")) {
                 key = tok.substring(0,tok.indexOf("="));
                 val = tok.substring(tok.indexOf("=")+1);
             } else if(tok.startsWith("no")) {
@@ -659,12 +715,12 @@ public abstract class Compiler implements Registers {
                 val = "true";
             }
             Option opt = getOption(key);
-            if(opt == null) {
+            if (opt == null) {
                 System.err.println("WARNING: No such option: " + key);
                 continue;
             }
 
-            if(opt.getType() == String.class)
+            if (opt.getType() == String.class)
                 opt.set(val);
             else if(opt.getType() == Integer.TYPE)
                 try {
@@ -672,7 +728,7 @@ public abstract class Compiler implements Registers {
                 } catch(NumberFormatException e) {
                     System.err.println("WARNING: " + val + " is not an integer");
                 }
-            else if(opt.getType() == Boolean.TYPE)
+            else if (opt.getType() == Boolean.TYPE)
                 opt.set(val.toLowerCase().equals("true")||val.toLowerCase().equals("yes"));
             else
                 throw new Error("Unknown type: " + opt.getType());
@@ -708,7 +764,7 @@ public abstract class Compiler implements Registers {
     private static String wrapAndIndent(String s, int firstindent, int indent, int width) {
         StringTokenizer st = new StringTokenizer(s," ");
         StringBuffer sb = new StringBuffer();
-        for (int i=0;i<firstindent;i++)
+        for (int i=0; i<firstindent; i++)
             sb.append(' ');
         int sofar = 0;
         while (st.hasMoreTokens()) {

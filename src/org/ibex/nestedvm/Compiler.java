@@ -264,9 +264,14 @@ public abstract class Compiler implements Registers {
         comp.setSource(mipsBinaryFileName);
 
         if (dumpOptions) {
+            Option option;
+          
             System.err.println("== Options ==");
-            for (int i=0; i<options.length; i+=2)
-                System.err.println(options[i] + ": " + comp.getOption(options[i]).get());
+            for (int i=0; i<options.length; i+=2) {
+              option=comp.getOption(options[i]);
+              if (option!=null) System.err.println(options[i] + ": " + option.get());
+              else System.err.println(options[i]);
+            }
             System.err.println("== End Options ==");
         }
 

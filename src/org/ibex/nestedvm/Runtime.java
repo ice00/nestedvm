@@ -65,11 +65,19 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
     /** The current state */
     protected int state = STOPPED;
-    /** @see Runtime#state state */
-    public final int getState() { return state; }
+    
+    /**
+     * Get the state
+     * 
+     * @return  the state
+     * @see Runtime#state state 
+     */
+    public final int getState() { 
+        return state; 
+    }
 
     /** The exit status if the process (only valid if state==DONE)
-        @see Runtime#state */
+    @see Runtime#state */
     private int exitStatus;
     public ExecutionException exitException;
 
@@ -79,7 +87,15 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
     /** Pointer to a SecurityManager for this process */
     SecurityManager sm;
-    public void setSecurityManager(SecurityManager sm) { this.sm = sm; }
+    
+    /**
+     * Set the security manager
+     * 
+     * @param sm the security manager
+     */
+    public void setSecurityManager(SecurityManager sm) {
+        this.sm = sm; 
+    }
 
     /** Pointer to a callback for the call_java syscall */
     private CallJavaCB callJavaCB;
@@ -87,23 +103,41 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
     /** Temporary buffer for read/write operations */
     private byte[] _byteBuf;
+    
     /** Max size of temporary buffer
-        @see Runtime#_byteBuf */
+    @see Runtime#_byteBuf */
     final static int MAX_CHUNK = 16*1024*1024 - 1024;
 
-    /** Subclasses should actually execute program in this method. They should continue
-        executing until state != RUNNING. Only syscall() can modify state. It is safe
-        to only check the state attribute after a call to syscall() */
+    /** 
+     * Subclasses should actually execute program in this method. 
+     * They should continue executing until state != RUNNING. 
+     * Only syscall() can modify state. 
+     * It is safe to only check the state attribute after a call to syscall() 
+     * 
+     * @throws org.ibex.nestedvm.Runtime.ExecutionException In case of error
+     */
     protected abstract void _execute() throws ExecutionException;
 
-    /** Subclasses should return the address of the symbol <i>symbol</i> or -1 it it doesn't exits in this method
-        This method is only required if the call() function is used */
-    public int lookupSymbol(String symbol) { return -1; }
+    /** 
+     * Subclasses should return the address of the symbol <i>symbol</i> or -1
+     * it it doesn't exits in this method
+     * This method is only required if the call() function is used
+     * 
+     * @param symbol symbol to search for
+     * @return the address of symbol or -1
+     */
+    public int lookupSymbol(String symbol) { 
+        return -1; 
+    }
 
-    /** Subclasses should populate a CPUState object representing the cpu state */
+    /** 
+     * Subclasses should populate a CPUState object representing the cpu state 
+     */
     protected abstract void getCPUState(CPUState state);
 
-    /** Subclasses should set the CPUState to the state held in <i>state</i> */
+    /** 
+     * Subclasses should set the CPUState to the state held in <i>state</i> 
+     */
     protected abstract void setCPUState(CPUState state);
 
     /** True to enabled a few hacks to better support the win32 console */
@@ -122,11 +156,13 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
         r._byteBuf = null;
         r.startTime = 0;
         r.fds = new FD[OPEN_MAX];
-        for(int i=0;i<OPEN_MAX;i++) if(fds[i] != null) r.fds[i] = fds[i].dup();
+        for (int i=0; i<OPEN_MAX; i++) {
+          if (fds[i] != null) r.fds[i] = fds[i].dup();
+        }
         int totalPages = writePages.length;
         r.readPages = new int[totalPages][];
         r.writePages = new int[totalPages][];
-        for(int i=0;i<totalPages;i++) {
+        for (int i=0; i<totalPages; i++) {
             if(readPages[i] == null) continue;
             if(writePages[i] == null) r.readPages[i] = readPages[i];
             else r.readPages[i] = r.writePages[i] = writePages[i].clone();
@@ -134,7 +170,17 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
         return r;
     }
 
-    protected Runtime(int pageSize, int totalPages) { this(pageSize, totalPages,false); }
+    /**
+     * Construct the runtime with total pages of page size
+     * 
+     * @param pageSize page size
+     * @param totalPages total pages
+     */
+    protected Runtime(int pageSize, int totalPages) { 
+        this(pageSize, totalPages, false); 
+    }
+    
+    
     protected Runtime(int pageSize, int totalPages, boolean exec) {
         if(pageSize <= 0) throw new IllegalArgumentException("pageSize <= 0");
         if(totalPages <= 0) throw new IllegalArgumentException("totalPages <= 0");
@@ -185,13 +231,19 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
         }
     }
 
-    /** Copy everything from <i>src</i> to <i>addr</i> initializing uninitialized pages if required.
-       Newly initalized pages will be marked read-only if <i>ro</i> is set */
+    /** 
+     * Copy everything from <i>src</i> to <i>addr</i> initializing uninitialized pages if required.
+     * Newly initalized pages will be marked read-only if <i>ro</i> is set 
+     * 
+     * @param src source list
+     * @param addr the address
+     * @param ro read only
+     */
     protected final void initPages(int[] src, int addr, boolean ro) {
         int pageWords = (1<<pageShift)>>>2;
         int pageMask = (1<<pageShift) - 1;
 
-        for(int i=0;i<src.length;) {
+        for (int i=0; i<src.length; ) {
             int page = addr >>> pageShift;
             int start = (addr&pageMask)>>2;
             int elements = min(pageWords-start,src.length-i);
@@ -206,7 +258,12 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
         }
     }
 
-    /** Initialize <i>words</i> of pages starting at <i>addr</i> to 0 */
+    /** 
+     * Initialize <i>words</i> of pages starting at <i>addr</i> to 0 
+     * 
+     * @param addr the address
+     * @param words the value to use for clear
+     */
     protected final void clearPages(int addr, int words) {
         int pageWords = (1<<pageShift)>>>2;
         int pageMask = (1<<pageShift) - 1;
@@ -240,7 +297,7 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
             switch(addr&3) {
                 case 1: buf[x++] = (byte)((word>>>16)&0xff); if(--count==0) break;
                 case 2: buf[x++] = (byte)((word>>> 8)&0xff); if(--count==0) break;
-                case 3: buf[x++] = (byte)((word>>> 0)&0xff); if(--count==0) break;
+                case 3: buf[x++] = (byte)((word)&0xff); if(--count==0) break;
             }
             addr = (addr&~3)+4;
         }
@@ -285,7 +342,7 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
             switch(addr&3) {
                 case 1: word = (word&0xff00ffff)|((buf[x++]&0xff)<<16); if(--count==0) break;
                 case 2: word = (word&0xffff00ff)|((buf[x++]&0xff)<< 8); if(--count==0) break;
-                case 3: word = (word&0xffffff00)|((buf[x++]&0xff)<< 0); if(--count==0) break;
+                case 3: word = (word&0xffffff00)|((buf[x++]&0xff)); if(--count==0) break;
             }
             memWrite(addr&~3,word);
             addr += x;
@@ -364,13 +421,13 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
         int pageWords = (1<<pageShift)>>>2;
         int pageWordMask = pageWords - 1;
 
-        int fourBytes = ((ch&0xff)<<24)|((ch&0xff)<<16)|((ch&0xff)<<8)|((ch&0xff)<<0);
+        int fourBytes = ((ch&0xff)<<24)|((ch&0xff)<<16)|((ch&0xff)<<8)|((ch&0xff));
         if((addr&3)!=0) {
             int word = memRead(addr&~3);
             switch(addr&3) {
                 case 1: word = (word&0xff00ffff)|((ch&0xff)<<16); if(--count==0) break;
                 case 2: word = (word&0xffff00ff)|((ch&0xff)<< 8); if(--count==0) break;
-                case 3: word = (word&0xffffff00)|((ch&0xff)<< 0); if(--count==0) break;
+                case 3: word = (word&0xffffff00)|((ch&0xff)); if(--count==0) break;
             }
             memWrite(addr&~3,word);
             addr = (addr&~3)+4;
@@ -560,8 +617,8 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     /** Initializes the process and prepairs it to be executed with execute() */
     public final void start(String[] args, String[] environ)  {
         int top, sp, argsAddr, envAddr;
-        if(state != STOPPED) throw new IllegalStateException("start() called in inappropriate state");
-        if(args == null) args = new String[]{getClass().getName()};
+        if (state != STOPPED) throw new IllegalStateException("start() called in inappropriate state");
+        if (args == null) args = new String[]{getClass().getName()};
 
         sp = top = writePages.length*(1<<pageShift);
         try {
@@ -571,11 +628,11 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
             throw new IllegalArgumentException("args/environ too big");
         }
         sp &= ~15;
-        if(top - sp > ARG_MAX) throw new IllegalArgumentException("args/environ too big");
+        if (top - sp > ARG_MAX) throw new IllegalArgumentException("args/environ too big");
 
         // HACK: heapStart() isn't always available when the constructor
         // is run and this sometimes doesn't get initialized
-        if(heapEnd == 0) {
+        if (heapEnd == 0) {
             heapEnd = heapStart();
             if(heapEnd == 0) throw new Error("heapEnd == 0");
             int pageSize = writePages.length == 1 ? 4096 : (1<<pageShift);
@@ -605,24 +662,24 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     void _started() {  }
 
     public final int call(String sym, Object[] args) throws CallException, FaultException {
-        if(state != PAUSED && state != CALLJAVA) throw new IllegalStateException("call() called in inappropriate state");
-        if(args.length > 7) throw new IllegalArgumentException("args.length > 7");
+        if (state != PAUSED && state != CALLJAVA) throw new IllegalStateException("call() called in inappropriate state");
+        if (args.length > 7) throw new IllegalArgumentException("args.length > 7");
         CPUState state = new CPUState();
         getCPUState(state);
 
         int sp = state.r[SP];
         int[] ia = new int[args.length];
-        for(int i=0;i<args.length;i++) {
+        for (int i=0; i<args.length; i++) {
             Object o = args[i];
             byte[] buf = null;
-            if(o instanceof String) {
+            if (o instanceof String) {
                 buf = getBytes((String)o);
-            } else if(o instanceof byte[]) {
+            } else if (o instanceof byte[]) {
                 buf = (byte[]) o;
-            } else if(o instanceof Number) {
+            } else if (o instanceof Number) {
                 ia[i] = ((Number)o).intValue();
             }
-            if(buf != null) {
+            if (buf != null) {
                 sp -= buf.length;
                 copyout(buf,sp,buf.length);
                 ia[i] = sp;
@@ -646,9 +703,9 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     /** Calls a function in the process with the given arguments */
     public final int call(String sym, int[] args) throws CallException {
         int func = lookupSymbol(sym);
-        if(func == -1) throw new CallException(sym + " not found");
+        if (func == -1) throw new CallException(sym + " not found");
         int helper = lookupSymbol("_call_helper");
-        if(helper == -1) throw new CallException("_call_helper not found");
+        if (helper == -1) throw new CallException("_call_helper not found");
         return call(helper,func,args);
     }
 
@@ -695,7 +752,7 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
         Returns -1 if the table is full. This can be used by subclasses to use custom file
         descriptors */
     public final int addFD(FD fd) {
-        if(state == EXITED || state == EXECED) throw new IllegalStateException("addFD called in inappropriate state");
+        if (state == EXITED || state == EXECED) throw new IllegalStateException("addFD called in inappropriate state");
         int i;
         for(i=0;i<OPEN_MAX;i++) if(fds[i] == null) break;
         if(i==OPEN_MAX) return -1;
@@ -710,9 +767,9 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
     /** Closes file descriptor <i>fdn</i> and removes it from the file descriptor table */
     public final boolean closeFD(int fdn) {
-        if(state == EXITED || state == EXECED) throw new IllegalStateException("closeFD called in inappropriate state");
-        if(fdn < 0 || fdn >= OPEN_MAX) return false;
-        if(fds[fdn] == null) return false;
+        if (state == EXITED || state == EXECED) throw new IllegalStateException("closeFD called in inappropriate state");
+        if (fdn < 0 || fdn >= OPEN_MAX) return false;
+        if (fds[fdn] == null) return false;
         _preCloseFD(fds[fdn]);
         fds[fdn].close();
         _postCloseFD(fds[fdn]);
@@ -723,10 +780,14 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     /** Duplicates the file descriptor <i>fdn</i> and returns the new fs */
     public final int dupFD(int fdn) {
         int i;
-        if(fdn < 0 || fdn >= OPEN_MAX) return -1;
-        if(fds[fdn] == null) return -1;
-        for(i=0;i<OPEN_MAX;i++) if(fds[i] == null) break;
-        if(i==OPEN_MAX) return -1;
+        if (fdn < 0 || fdn >= OPEN_MAX) return -1;
+        if (fds[fdn] == null) return -1;
+        
+        for (i=0; i<OPEN_MAX; i++) {
+          if(fds[i] == null) break;
+        }
+        
+        if (i==OPEN_MAX) return -1;
         fds[i] = fds[fdn].dup();
         return i;
     }
@@ -744,24 +805,24 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
 
     FD hostFSOpen(final File f, int flags, int mode, final Object data) throws ErrnoException {
-        if((flags & ~(3|O_CREAT|O_EXCL|O_APPEND|O_TRUNC)) != 0) {
+        if ((flags & ~(3|O_CREAT|O_EXCL|O_APPEND|O_TRUNC)) != 0) {
             if(STDERR_DIAG)
                 System.err.println("WARNING: Unsupported flags passed to open(\"" + f + "\"): " + toHex(flags & ~(3|O_CREAT|O_EXCL|O_APPEND|O_TRUNC)));
             throw new ErrnoException(ENOTSUP);
         }
         boolean write = (flags&3) != RD_ONLY;
 
-        if(sm != null && !(write ? sm.allowWrite(f) : sm.allowRead(f))) throw new ErrnoException(EACCES);
+        if (sm != null && !(write ? sm.allowWrite(f) : sm.allowRead(f))) throw new ErrnoException(EACCES);
 
-        if((flags & (O_EXCL|O_CREAT)) == (O_EXCL|O_CREAT)) {
+        if ((flags & (O_EXCL|O_CREAT)) == (O_EXCL|O_CREAT)) {
             try {
-                if(!Platform.atomicCreateFile(f)) throw new ErrnoException(EEXIST);
+                if (!Platform.atomicCreateFile(f)) throw new ErrnoException(EEXIST);
             } catch(IOException e) {
                 throw new ErrnoException(EIO);
             }
-        } else if(!f.exists()) {
-            if((flags&O_CREAT)==0) return null;
-        } else if(f.isDirectory()) {
+        } else if (!f.exists()) {
+            if ((flags&O_CREAT)==0) return null;
+        } else if (f.isDirectory()) {
             return hostFSDirFD(f,data);
         }
 
@@ -782,7 +843,7 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     FD hostFSDirFD(File f, Object data) { return null; }
 
     FD _open(String path, int flags, int mode) throws ErrnoException {
-        return hostFSOpen(new File(path),flags,mode,null);
+        return hostFSOpen(new File(path), flags,mode,null);
     }
 
     /** The open syscall */
@@ -794,9 +855,13 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
         flags &= ~O_NOCTTY; // this is meaningless under nestedvm
         FD fd = _open(name,flags,mode);
-        if(fd == null) return -ENOENT;
+        if (fd == null) return -ENOENT;
         int fdn = addFD(fd);
-        if(fdn == -1) { fd.close(); return -ENFILE; }
+        
+        if (fdn == -1) { 
+            fd.close(); 
+            return -ENFILE; 
+        }
         return fdn;
     }
 
@@ -804,14 +869,14 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
     private int sys_write(int fdn, int addr, int count) throws FaultException, ErrnoException {
         count = Math.min(count,MAX_CHUNK);
-        if(fdn < 0 || fdn >= OPEN_MAX) return -EBADFD;
-        if(fds[fdn] == null) return -EBADFD;
+        if (fdn < 0 || fdn >= OPEN_MAX) return -EBADFD;
+        if (fds[fdn] == null) return -EBADFD;
         byte[] buf = byteBuf(count);
         copyin(addr,buf,count);
         try {
             return fds[fdn].write(buf,0,count);
         } catch(ErrnoException e) {
-            if(e.errno == EPIPE) sys_exit(128+13);
+            if (e.errno == EPIPE) sys_exit(128+13);
             throw e;
         }
     }
@@ -819,8 +884,8 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     /** The read syscall */
     private int sys_read(int fdn, int addr, int count) throws FaultException, ErrnoException {
         count = Math.min(count,MAX_CHUNK);
-        if(fdn < 0 || fdn >= OPEN_MAX) return -EBADFD;
-        if(fds[fdn] == null) return -EBADFD;
+        if (fdn < 0 || fdn >= OPEN_MAX) return -EBADFD;
+        if (fds[fdn] == null) return -EBADFD;
         byte[] buf = byteBuf(count);
         int n = fds[fdn].read(buf,0,count);
         copyout(buf,addr,n);
@@ -846,9 +911,9 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
     /** The seek syscall */
     private int sys_lseek(int fdn, int offset, int whence) throws ErrnoException {
-        if(fdn < 0 || fdn >= OPEN_MAX) return -EBADFD;
-        if(fds[fdn] == null) return -EBADFD;
-        if(whence != SEEK_SET && whence !=  SEEK_CUR && whence !=  SEEK_END) return -EINVAL;
+        if (fdn < 0 || fdn >= OPEN_MAX) return -EBADFD;
+        if (fds[fdn] == null) return -EBADFD;
+        if (whence != SEEK_SET && whence !=  SEEK_CUR && whence !=  SEEK_END) return -EINVAL;
         int n = fds[fdn].seek(offset,whence);
         return n < 0 ? -ESPIPE : n;
     }
@@ -934,35 +999,52 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     }
 
     private int sys_sysconf(int n) {
-        switch(n) {
-            case _SC_CLK_TCK: return 1000;
-            case _SC_PAGESIZE: return  writePages.length == 1 ? 4096 : (1<<pageShift);
-            case _SC_PHYS_PAGES: return writePages.length == 1 ? (1<<pageShift)/4096 : writePages.length;
+        switch (n) {
+            case _SC_CLK_TCK:
+                return 1000;
+            case _SC_PAGESIZE:
+                return writePages.length == 1 ? 4096 : (1 << pageShift);
+            case _SC_PHYS_PAGES:
+                return writePages.length == 1 ? (1 << pageShift) / 4096 : writePages.length;
             default:
-                if(STDERR_DIAG) System.err.println("WARNING: Attempted to use unknown sysconf key: " + n);
+                if (STDERR_DIAG) {
+                    System.err.println("WARNING: Attempted to use unknown sysconf key: " + n);
+                }
                 return -EINVAL;
         }
     }
 
-    /** The sbrk syscall. This can also be used by subclasses to allocate memory.
-        <i>incr</i> is how much to increase the break by */
+    /**
+     * The sbrk syscall. This can also be used by subclasses to allocate memory.
+     * <i>incr</i> is how much to increase the break by
+     */
     public final int sbrk(int incr) {
-        if(incr < 0) return -ENOMEM;
-        if(incr==0) return heapEnd;
-        incr = (incr+3)&~3;
+        if (incr < 0) {
+            return -ENOMEM;
+        }
+        if (incr == 0) {
+            return heapEnd;
+        }
+        incr = (incr + 3) & ~3;
         int oldEnd = heapEnd;
         int newEnd = oldEnd + incr;
-        if(newEnd >= stackBottom) return -ENOMEM;
+        if (newEnd >= stackBottom) {
+            return -ENOMEM;
+        }
 
-        if(writePages.length > 1) {
-            int pageMask = (1<<pageShift) - 1;
-            int pageWords = (1<<pageShift) >>> 2;
+        if (writePages.length > 1) {
+            int pageMask = (1 << pageShift) - 1;
+            int pageWords = (1 << pageShift) >>> 2;
             int start = (oldEnd + pageMask) >>> pageShift;
             int end = (newEnd + pageMask) >>> pageShift;
             try {
-                for(int i=start;i<end;i++) readPages[i] = writePages[i] = new int[pageWords];
-            } catch(OutOfMemoryError e) {
-                if(STDERR_DIAG) System.err.println("WARNING: Caught OOM Exception in sbrk: " + e);
+                for (int i = start; i < end; i++) {
+                    readPages[i] = writePages[i] = new int[pageWords];
+                }
+            } catch (OutOfMemoryError e) {
+                if (STDERR_DIAG) {
+                    System.err.println("WARNING: Caught OOM Exception in sbrk: " + e);
+                }
                 return -ENOMEM;
             }
         }
@@ -977,8 +1059,8 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     public static interface CallJavaCB { public int call(int a, int b, int c, int d); }
 
     private int sys_calljava(int a, int b, int c, int d) {
-        if(state != RUNNING) throw new IllegalStateException("wound up calling sys_calljava while not in RUNNING");
-        if(callJavaCB != null) {
+        if (state != RUNNING) throw new IllegalStateException("wound up calling sys_calljava while not in RUNNING");
+        if (callJavaCB != null) {
             state = CALLJAVA;
             int ret;
             try {
@@ -991,7 +1073,7 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
             state = RUNNING;
             return ret;
         } else {
-            if(STDERR_DIAG) System.err.println("WARNING: calljava syscall invoked without a calljava callback set");
+            if (STDERR_DIAG) System.err.println("WARNING: calljava syscall invoked without a calljava callback set");
             return 0;
         }
     }
@@ -1001,10 +1083,15 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
         return 0;
     }
 
-    private int sys_getpagesize() { return writePages.length == 1 ? 4096 : (1<<pageShift); }
+    private int sys_getpagesize() { 
+        return writePages.length == 1 ? 4096 : (1<<pageShift); 
+    }
 
-    /** Hook for subclasses to do something when the process exits  */
-    void _exited() {  }
+    /** 
+     * Hook for subclasses to do something when the process exits  
+     */
+    void _exited() {
+    }
 
     void exit(int status, boolean fromSignal) {
         if(fromSignal && fds[2] != null) {
@@ -1014,7 +1101,7 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
             } catch(ErrnoException e) { }
         }
         exitStatus = status;
-        for(int i=0;i<fds.length;i++) if(fds[i] != null) closeFD(i);
+        for (int i=0; i<fds.length; i++) if(fds[i] != null) closeFD(i);
         state = EXITED;
         _exited();
     }
@@ -1027,8 +1114,8 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     final int sys_fcntl(int fdn, int cmd, int arg) throws FaultException {
         int i;
 
-        if(fdn < 0 || fdn >= OPEN_MAX) return -EBADFD;
-        if(fds[fdn] == null) return -EBADFD;
+        if (fdn < 0 || fdn >= OPEN_MAX) return -EBADFD;
+        if (fds[fdn] == null) return -EBADFD;
         FD fd = fds[fdn];
 
         switch(cmd) {
@@ -1056,8 +1143,8 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     }
 
     final int fsync(int fdn) {
-        if(fdn < 0 || fdn >= OPEN_MAX) return -EBADFD;
-        if(fds[fdn] == null) return -EBADFD;
+        if (fdn < 0 || fdn >= OPEN_MAX) return -EBADFD;
+        if (fds[fdn] == null) return -EBADFD;
         FD fd = fds[fdn];
 
         Seekable s = fd.seekable();
@@ -1146,11 +1233,41 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     private int sys_getgid() { return 0; }
     private int sys_getegid() { return 0; }
 
-    public int xmalloc(int size) { int p=malloc(size); if(p==0) throw new RuntimeException("malloc() failed"); return p; }
-    public int xrealloc(int addr,int newsize) { int p=realloc(addr,newsize); if(p==0) throw new RuntimeException("realloc() failed"); return p; }
-    public int realloc(int addr, int newsize) { try { return call("realloc",addr,newsize); } catch(CallException e) { return 0; } }
-    public int malloc(int size) { try { return call("malloc",size); } catch(CallException e) { return 0; } }
-    public void free(int p) { try { if(p!=0) call("free",p); } catch(CallException e) { /*noop*/ } }
+    public int xmalloc(int size) { 
+        int p=malloc(size); 
+        if(p==0) throw new RuntimeException("malloc() failed"); 
+        return p; 
+    }
+    
+    public int xrealloc(int addr,int newsize) { 
+        int p=realloc(addr,newsize); 
+        if(p==0) throw new RuntimeException("realloc() failed"); 
+        return p; 
+    }
+    
+    public int realloc(int addr, int newsize) {
+        try { 
+          return call("realloc",addr,newsize); 
+        } catch(CallException e) { 
+            return 0; 
+          } 
+    }
+    
+    public int malloc(int size) { 
+        try {
+          return call("malloc",size); 
+        } catch(CallException e) { 
+            return 0; 
+          } 
+    }
+    
+    public void free(int p) { 
+        try { 
+            if(p!=0) call("free",p); 
+        } catch(CallException e) { 
+            /*noop*/ 
+          } 
+    }
 
     /** Helper function to create a cstring in main memory */
     public int strdup(String s) {
@@ -1177,7 +1294,7 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
         // determine length
         int i=addr;
-        for(int word = 1; word != 0; i++) {
+        for (int word = 1; word != 0; i++) {
             word = memRead(i&~3);
             switch(i&3) {
                 case 0: word = (word>>>24)&0xff; break;
@@ -1203,13 +1320,13 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     public final String cstring(int addr) throws ReadFaultException {
         if (addr == 0) return null;
         StringBuffer sb = new StringBuffer();
-        for(;;) {
+        for (;;) {
             int word = memRead(addr&~3);
             switch(addr&3) {
                 case 0: if(((word>>>24)&0xff)==0) return sb.toString(); sb.append((char)((word>>>24)&0xff)); addr++;
                 case 1: if(((word>>>16)&0xff)==0) return sb.toString(); sb.append((char)((word>>>16)&0xff)); addr++;
                 case 2: if(((word>>> 8)&0xff)==0) return sb.toString(); sb.append((char)((word>>> 8)&0xff)); addr++;
-                case 3: if(((word>>> 0)&0xff)==0) return sb.toString(); sb.append((char)((word>>> 0)&0xff)); addr++;
+                case 3: if(((word)&0xff)==0) return sb.toString(); sb.append((char)((word)&0xff)); addr++;
             }
         }
     }
@@ -1227,14 +1344,23 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
         public boolean isMarkedForDeleteOnClose() { return deleteOnClose; }
 
         /** Read some bytes. Should return the number of bytes read, 0 on EOF, or throw an IOException on error */
-        public int read(byte[] a, int off, int length) throws ErrnoException { throw new ErrnoException(EBADFD); }
+        public int read(byte[] a, int off, int length) throws ErrnoException { 
+            throw new ErrnoException(EBADFD); 
+        }
+        
         /** Write. Should return the number of bytes written or throw an IOException on error */
-        public int write(byte[] a, int off, int length) throws ErrnoException { throw new ErrnoException(EBADFD); }
+        public int write(byte[] a, int off, int length) throws ErrnoException { 
+            throw new ErrnoException(EBADFD); 
+        }
 
         /** Seek in the filedescriptor. Whence is SEEK_SET, SEEK_CUR, or SEEK_END. Should return -1 on error or the new position. */
-        public int seek(int n, int whence)  throws ErrnoException  { return -1; }
+        public int seek(int n, int whence)  throws ErrnoException  { 
+            return -1; 
+        }
 
-        public int getdents(byte[] a, int off, int length) throws ErrnoException { throw new ErrnoException(EBADFD); }
+        public int getdents(byte[] a, int off, int length) throws ErrnoException { 
+            throw new ErrnoException(EBADFD); 
+        }
 
         /** Return a Seekable object representing this file descriptor (can be read only)
             This is required for exec() */
@@ -1289,9 +1415,9 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
         @Override
         public int write(byte[] a, int off, int length) throws ErrnoException {
-            if((flags&3) == RD_ONLY) throw new ErrnoException(EBADFD);
+            if ((flags&3) == RD_ONLY) throw new ErrnoException(EBADFD);
             // NOTE: There is race condition here but we can't fix it in pure java
-            if((flags&O_APPEND) != 0) seek(0,SEEK_END);
+            if ((flags&O_APPEND) != 0) seek(0,SEEK_END);
             try {
                 return data.write(a,off,length);
             } catch(IOException e) {
@@ -1301,7 +1427,7 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
         @Override
         public int read(byte[] a, int off, int length) throws ErrnoException {
-            if((flags&3) == WR_ONLY) throw new ErrnoException(EBADFD);
+            if ((flags&3) == WR_ONLY) throw new ErrnoException(EBADFD);
             try {
                 int n = data.read(a,off,length);
                 return n < 0 ? 0 : n;
@@ -1323,26 +1449,26 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
         public InputOutputStreamFD(InputStream is, OutputStream os) {
             this.is = is;
             this.os = os;
-            if(is == null && os == null) throw new IllegalArgumentException("at least one stream must be supplied");
+            if (is == null && os == null) throw new IllegalArgumentException("at least one stream must be supplied");
         }
 
         @Override
         public int flags() {
-            if(is != null && os != null) return O_RDWR;
-            if(is != null) return O_RDONLY;
-            if(os != null) return O_WRONLY;
+            if (is != null && os != null) return O_RDWR;
+            if (is != null) return O_RDONLY;
+            if (os != null) return O_WRONLY;
             throw new Error("should never happen");
         }
 
         @Override
         public void _close() {
-            if(is != null) try { is.close(); } catch(IOException e) { /*ignore*/ }
-            if(os != null) try { os.close(); } catch(IOException e) { /*ignore*/ }
+            if (is != null) try { is.close(); } catch(IOException e) { /*ignore*/ }
+            if (os != null) try { os.close(); } catch(IOException e) { /*ignore*/ }
         }
 
         @Override
         public int read(byte[] a, int off, int length) throws ErrnoException {
-            if(is == null) return super.read(a,off,length);
+            if (is == null) return super.read(a,off,length);
             try {
                 int n = is.read(a,off,length);
                 if (n == 0 && length > 0) {
@@ -1362,7 +1488,7 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
 
         @Override
         public int write(byte[] a, int off, int length) throws ErrnoException {
-            if(os == null) return super.write(a,off,length);
+            if (os == null) return super.write(a,off,length);
             try {
                 os.write(a,off,length);
                 return length;
@@ -1376,47 +1502,80 @@ public abstract class Runtime implements UsermodeConstants,Registers,Cloneable {
     }
 
     static class TerminalFD extends InputOutputStreamFD {
-        public TerminalFD(InputStream is) { this(is,null); }
-        public TerminalFD(OutputStream os) { this(null,os); }
-        public TerminalFD(InputStream is, OutputStream os) { super(is,os); }
+        public TerminalFD(InputStream is) { 
+            this(is,null); 
+        }
+        
+        public TerminalFD(OutputStream os) { 
+            this(null,os); 
+        }
+        
+        public TerminalFD(InputStream is, OutputStream os) { 
+            super(is,os); 
+        }
+        
         @Override
-        public void _close() { /* noop */ }
+        public void _close() { 
+          /* noop */ 
+        }
+        
         @Override
-        public FStat _fstat() { return new SocketFStat() { @Override
-        public int type() { return S_IFCHR; } @Override
-        public int mode() { return 0600; } }; }
+        public FStat _fstat() { 
+          return new SocketFStat() { 
+            @Override
+            public int type() { 
+              return S_IFCHR; 
+            } 
+            
+            @Override
+            public int mode() { 
+              return 0600; 
+            } 
+          }; 
+        }
     }
 
     // This is pretty inefficient but it is only used for reading from the console on win32
     static class Win32ConsoleIS extends InputStream {
         private int pushedBack = -1;
         private final InputStream parent;
-        public Win32ConsoleIS(InputStream parent) { this.parent = parent; }
+        
+        public Win32ConsoleIS(InputStream parent) { 
+            this.parent = parent; 
+        }
+        
         @Override
         public int read() throws IOException {
-            if(pushedBack != -1) { int c = pushedBack; pushedBack = -1; return c; }
+            if (pushedBack != -1) { 
+                int c = pushedBack; pushedBack = -1; 
+                return c; 
+            }
             int c = parent.read();
-            if(c == '\r' && (c = parent.read()) != '\n') { pushedBack = c; return '\r'; }
+            if (c == '\r' && (c = parent.read()) != '\n') {
+                pushedBack = c; 
+                return '\r'; 
+            }
             return c;
         }
+        
         @Override
         public int read(byte[] buf, int pos, int len) throws IOException {
             boolean pb = false;
-            if(pushedBack != -1 && len > 0) {
+            if (pushedBack != -1 && len > 0) {
                 buf[0] = (byte) pushedBack;
                 pushedBack = -1;
                 pos++; len--; pb = true;
             }
             int n = parent.read(buf,pos,len);
-            if(n == -1) return pb ? 1 : -1;
-            for(int i=0;i<n;i++) {
+            if (n == -1) return pb ? 1 : -1;
+            for (int i=0; i<n; i++) {
                 if(buf[pos+i] == '\r') {
                     if(i==n-1) {
                         int c = parent.read();
                         if(c == '\n') buf[pos+i] = '\n';
                         else pushedBack = c;
-                    } else if(buf[pos+i+1] == '\n') {
-                        System.arraycopy(buf,pos+i+1,buf,pos+i,len-i-1);
+                    } else if (buf[pos+i+1] == '\n') {
+                        System.arraycopy(buf, pos+i+1, buf, pos+i, len-i-1);
                         n--;
                     }
                 }

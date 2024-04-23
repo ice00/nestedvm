@@ -107,7 +107,7 @@ public class Mips {
     public static final int OP_LWC1 = 49;    
     
      /** Opcode for store linker instruction */
-    public static final int OP_SL = 56;
+    public static final int OP_SC = 56;
    
     /** Opcode for store word coprocessor 1 instruction */
     public static final int OP_SWC1 = 57;      
@@ -146,6 +146,103 @@ public class Mips {
     
     /** Opcode for floating point unit single instruction (destination register) */
     public static final int RT_FPU_SINGLE = 16;    
+    
+    /** Opcode for floating point unit double instruction (destination register) */
+    public static final int RT_FPU_DOUBLE = 17;        
+    
+    /** Opcode for floating point unit integer instruction (destination register) */
+    public static final int RT_FPU_INTEGER = 20;    
+    
+    
+    
+    // Fpu.integer subcode instructions
+    
+    /** Opcode for fpu integer convert single precision instruction (subcode) */
+    public static final int SUB_FPU_INTEGER_CVTSW = 32;
+    
+    /** Opcode for fpu integer convert double precision instruction (subcode) */
+    public static final int SUB_FPU_INTEGER_CVTDW = 33;
+    
+    
+    
+    // Fpu.single subcode instructions
+    
+    /** Opcode for fpu single addition instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_ADDS = 0;
+    
+    /** Opcode for fpu single subtraction instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_SUBS = 1;   
+    
+    /** Opcode for fpu single multiply instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_MULS = 2; 
+
+    /** Opcode for fpu single division instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_DIVS = 3; 
+    
+    /** Opcode for fpu single absolute instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_ABSS = 5;
+    
+    /** Opcode for fpu single move instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_MOVS = 6;
+    
+    /** Opcode for fpu single negative instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_NEGS = 7;
+    
+    /** Opcode for fpu single convert single precision instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_CVTDS = 33;
+
+    /** Opcode for fpu single convert double precision instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_CVTWS = 36;    
+    
+    /** Opcode for fpu single compare equal for single precision instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_CEQS = 50;
+    
+    /** Opcode for fpu single compare less than for single precision instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_CLTS = 60;
+    
+    /** Opcode for fpu single compare less equal for single precision instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_CLES = 62;
+    
+    
+    
+    // Fpu.souble subcode instructions
+    
+    /** Opcode for fpu double addition instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_ADDD = 0;
+    
+    /** Opcode for fpu double subtraction instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_SUBD = 1;   
+    
+    /** Opcode for fpu double multiply instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_MULD = 2; 
+
+    /** Opcode for fpu double division instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_DIVD = 3; 
+    
+    /** Opcode for fpu double absolute instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_ABSD = 5;
+    
+    /** Opcode for fpu double move instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_MOVD = 6;
+    
+    /** Opcode for fpu double negative instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_NEGD = 7;
+    
+    /** Opcode for fpu double convert single precision instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_CVTSD = 32;
+
+    /** Opcode for fpu double convert double precision instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_CVTWD = 36;    
+    
+    /** Opcode for fpu double compare equal for single precision instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_CEQD = 50;
+    
+    /** Opcode for fpu double compare less than for single precision instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_CLTD = 60;
+    
+    /** Opcode for fpu double compare less equal for single precision instruction (subcode) */
+    public static final int SUB_FPU_SINGLE_CLED = 62;
+    
     
     
     

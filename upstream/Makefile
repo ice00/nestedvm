@@ -37,12 +37,12 @@ darcs_gcclass = http://gcclass.ibex.org/
 darcs_classgen = http://classgen.ibex.org/
 git_gcclass = http://github.com/bgould/gcclass
 git_classgen = http://github.com/bgould/classgen
-cross_root := $(usr)/mips-unknown-elf
 .SECONDARY: # This is broken in gmake < 3.79.1
 
 upstream = $(shell pwd)
 root = $(shell dirname "`pwd`")
 usr = $(upstream)/install
+cross_root := $(usr)/mips-unknown-elf
 
 PATH := $(usr)/bin:$(PATH)
 export PATH

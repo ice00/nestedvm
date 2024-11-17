@@ -4,15 +4,41 @@
 
 package org.ibex.nestedvm;
 
-import org.ibex.nestedvm.util.*;
-import java.io.*;
-import java.util.*;
-import java.net.*;
-import java.nio.file.*;
-import java.lang.reflect.*; // For lazily linked RuntimeCompiler
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+//import java.lang.reflect.*; // For lazily linked RuntimeCompiler
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.net.SocketAddress;
+import java.net.SocketException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.UnknownHostException;
+import java.nio.file.Files;
+import java.util.Enumeration;
+import java.util.Hashtable;
+import java.util.TimeZone;
+import java.util.Vector;
+import org.ibex.nestedvm.util.InodeCache;
+import org.ibex.nestedvm.util.Platform;
+import org.ibex.nestedvm.util.Seekable;
+import org.ibex.nestedvm.util.Sort;
 
 // FEATURE: vfork
 
+/**
+ * A Unix runtime
+ */
 public abstract class UnixRuntime extends Runtime implements Cloneable {
     /** The pid of this "process" */
     private int pid;
@@ -74,9 +100,12 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
     }
 
     private static boolean envHas(String key,String[] environ) {
-        for(int i=0; i<environ.length; i++)
-            if(environ[i]!=null && environ[i].startsWith(key + "=")) return true;
-        return false;
+      for (String environ1 : environ) {
+        if (environ1 != null && environ1.startsWith(key + "=")) {
+          return true;
+        }
+      }
+      return false;
     }
 
     @Override
@@ -92,7 +121,7 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
         if(!envHas("TMPDIR",extra) && (tmp=Platform.getProperty("java.io.tmpdir")) != null && (tmp=gs.mapHostPath(tmp)) != null)
             defaults[n++] = "TMPDIR=" + tmp;
         if(!envHas("SHELL",extra)) defaults[n++] = "SHELL=/bin/sh";
-        if(!envHas("TERM",extra) && !win32Hacks)  defaults[n++] = "TERM=vt100";
+        if(!envHas("TERM",extra) && !WIN32HACKS)  defaults[n++] = "TERM=vt100";
         if(!envHas("TZ",extra))    defaults[n++] = "TZ=" + posixTZ();
         if(!envHas("PATH",extra))  defaults[n++] = "PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin";
         String[] env = new String[extra.length+n];
@@ -362,7 +391,7 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
         synchronized(children) {
             for(;;) {
                 if(pid == -1) {
-                    if(exitedChildren.size() > 0) {
+                    if(!exitedChildren.isEmpty()) {
                         done = exitedChildren.elementAt(exitedChildren.size() - 1);
                         exitedChildren.removeElementAt(exitedChildren.size() - 1);
                     }
@@ -475,6 +504,9 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
         return r.pid;
     }
 
+    /**
+     * Forked process sd s Thread
+     */
     public static final class ForkedProcess extends Thread {
         private final UnixRuntime initial;
         public ForkedProcess(UnixRuntime initial) {
@@ -975,22 +1007,25 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
             }
 
             if (cmd == F_GETLK) {
-                // The simple Java file locking below will happily return
-                // a lock that overlaps one already held by the JVM. Thus
-                // we must check over all the locks held by other Runtimes
-                for (int i=0; i < locks.length; i++) {
-                    if (locks[i] == null || !s.equals(locks[i].seekable()))
-                        continue;
-                    if (!locks[i].overlaps(l_start, l_len))
-                        continue;
-                    if (locks[i].getOwner() == this)
-                        continue;
-                    if (locks[i].isShared() && l_type == F_RDLCK)
-                        continue;
-
-                    // overlapping lock held by another process
-                    return 0;
+              // The simple Java file locking below will happily return
+              // a lock that overlaps one already held by the JVM. Thus
+              // we must check over all the locks held by other Runtimes
+              for (Seekable.Lock lock : locks) {
+                if (lock == null || !s.equals(lock.seekable())) {
+                  continue;
                 }
+                if (!lock.overlaps(l_start, l_len)) {
+                  continue;
+                }
+                if (lock.getOwner() == this) {
+                  continue;
+                }
+                if (lock.isShared() && l_type == F_RDLCK) {
+                  continue;
+                }
+                // overlapping lock held by another process
+                return 0;
+              }
 
                 // check if an area is lockable by attempting to obtain a lock
                 Seekable.Lock lock = s.lock(l_start, l_len, l_type == F_RDLCK);
@@ -1006,76 +1041,79 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
             // now processing F_SETLK
             if (cmd != F_SETLK) return -EINVAL;
 
-            if (l_type == F_UNLCK) {
-                // release all locks that fall within the boundaries given
-                for (int i=0; i < locks.length; i++) {
-                    if (locks[i] == null || !s.equals(locks[i].seekable()))
-                        continue;
-                    if (locks[i].getOwner() != this) continue;
-
-                    int pos = (int)locks[i].position();
-                    if (pos < l_start) continue;
-                    if (l_start != 0 && l_len != 0) // start/len 0 means unlock all
-                        if (pos + locks[i].size() > l_start + l_len)
-                            continue;
-
+          switch (l_type) {
+            case F_UNLCK:
+              // release all locks that fall within the boundaries given
+              for (int i=0; i < locks.length; i++) {
+                if (locks[i] == null || !s.equals(locks[i].seekable()))
+                  continue;
+                if (locks[i].getOwner() != this) continue;
+                
+                int pos = (int)locks[i].position();
+                if (pos < l_start) continue;
+                if (l_start != 0 && l_len != 0) // start/len 0 means unlock all
+                  if (pos + locks[i].size() > l_start + l_len)
+                    continue;
+                
+                locks[i].release();
+                locks[i] = null;
+              }
+              return 0;
+            case F_RDLCK:
+            case F_WRLCK:
+              // first see if a lock already exists
+              for (int i=0; i < locks.length; i++) {
+                if (locks[i] == null || !s.equals(locks[i].seekable()))
+                  continue;
+                
+                if (locks[i].getOwner() == this) {
+                  // if this Runtime owns an overlapping lock work with it
+                  if (locks[i].contained(l_start, l_len)) {
                     locks[i].release();
                     locks[i] = null;
-                }
-                return 0;
-
-            } else if (l_type == F_RDLCK || l_type == F_WRLCK) {
-                // first see if a lock already exists
-                for (int i=0; i < locks.length; i++) {
-                    if (locks[i] == null || !s.equals(locks[i].seekable()))
-                        continue;
-
-                    if (locks[i].getOwner() == this) {
-                        // if this Runtime owns an overlapping lock work with it
-                        if (locks[i].contained(l_start, l_len)) {
-                            locks[i].release();
-                            locks[i] = null;
-                        } else if (locks[i].contains(l_start, l_len)) {
-                            if (locks[i].isShared() == (l_type == F_RDLCK)) {
-                                // return this more general lock
-                                memWrite(arg+4, (int)locks[i].position());
-                                memWrite(arg+8, (int)locks[i].size());
-                                return 0;
-                            } else {
-                                locks[i].release();
-                                locks[i] = null;
-                            }
-                        }
+                  } else if (locks[i].contains(l_start, l_len)) {
+                    if (locks[i].isShared() == (l_type == F_RDLCK)) {
+                      // return this more general lock
+                      memWrite(arg+4, (int)locks[i].position());
+                      memWrite(arg+8, (int)locks[i].size());
+                      return 0;
                     } else {
-                        // if another Runtime has an lock and it is exclusive or
-                        // we want an exclusive lock then fail
-                        if (locks[i].overlaps(l_start, l_len)
-                                && (!locks[i].isShared() || l_type == F_WRLCK))
-                            return -EAGAIN;
+                      locks[i].release();
+                      locks[i] = null;
                     }
+                  }
+                } else {
+                  // if another Runtime has an lock and it is exclusive or
+                  // we want an exclusive lock then fail
+                  if (locks[i].overlaps(l_start, l_len)
+                      && (!locks[i].isShared() || l_type == F_WRLCK))
+                    return -EAGAIN;
                 }
-
-                // create the lock
-                Seekable.Lock lock = s.lock(l_start, l_len, l_type == F_RDLCK);
-                if (lock == null) return -EAGAIN;
-                lock.setOwner(this);
-
-                int i;
-                for (i=0; i < locks.length; i++)
-                    if (locks[i] == null) break;
-                if (i == locks.length) return -ENOLCK;
-                locks[i] = lock;
-                return 0;
-
-            } else {
-                return -EINVAL;
-            }
+              }
+              
+              // create the lock
+              Seekable.Lock lock = s.lock(l_start, l_len, l_type == F_RDLCK);
+              if (lock == null) return -EAGAIN;
+              lock.setOwner(this);
+              
+              int i;
+              for (i=0; i < locks.length; i++)
+                if (locks[i] == null) break;
+              if (i == locks.length) return -ENOLCK;
+              locks[i] = lock;
+              return 0;
+            default:
+              return -EINVAL;
+          }
 
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
+    /**
+     * Socket file descriptoor
+     */
     static class SocketFD extends FD {
         public static final int TYPE_STREAM = 0;
         public static final int TYPE_DGRAM = 1;
@@ -1619,7 +1657,7 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
             memWrite(oldlenaddr,len);
         } else if(o instanceof Integer) {
             if(len < 4) return -ENOMEM;
-            memWrite(oldp,((Integer)o).intValue());
+            memWrite(oldp, ((Integer)o));
         } else {
             throw new Error("should never happen");
         }
@@ -1730,8 +1768,12 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
             if(!path.startsWith("/")) throw new IllegalArgumentException("Mount point doesn't start with a /");
             if(path.equals("/")) return root;
             path  = path.substring(1);
-            for(int i=0; i<mps.length; i++)
-                if(mps[i].path.equals(path)) return mps[i].fs;
+            
+            for (MP mp : mps) {
+              if (mp.path.equals(path)) {
+                return mp.fs;
+              }
+            }
             return null;
         }
 
@@ -1755,7 +1797,10 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
             Sort.sort(newMPS);
             mps = newMPS;
             int highdevno = 0;
-            for(int i=0; i<mps.length; i++) highdevno = max(highdevno,mps[i].fs.devno);
+            
+            for (MP mp : mps) {
+              highdevno = max(highdevno, mp.fs.devno);
+            }
             fs.devno = highdevno + 2;
         }
 
@@ -1816,12 +1861,11 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
                 synchronized(this) {
                     list = mps;
                 }
-                for(int i = 0; i < list.length; i++) {
-                    MP mp = list[i];
-                    int mpl = mp.path.length();
-                    if (normalizedPath.startsWith(mp.path) && (pathLength == mpl || normalizedPath.charAt(mpl) == '/')) {
-                        return new FSPathPair(mp.fs, pathLength == mpl ? "" : normalizedPath.substring(mpl+1));
-                    }
+                for (MP mp : list) {
+                  int mpl = mp.path.length();
+                  if (normalizedPath.startsWith(mp.path) && (pathLength == mpl || normalizedPath.charAt(mpl) == '/')) {
+                    return new FSPathPair(mp.fs, pathLength == mpl ? "" : normalizedPath.substring(mpl+1));
+                  }
                 }
             }
             return new FSPathPair(root, normalizedPath);
@@ -1851,11 +1895,10 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
                 synchronized(this) {
                     list = mps;
                 }
-                for(int i=0; i<list.length; i++) {
-                    MP mp = list[i];
-                    int mpl = mp.path.length();
-                    if(normalizedPath.startsWith(mp.path) && (pl == mpl || normalizedPath.charAt(mpl) == '/'))
-                        return mp.fs.dispatch(op,r,pl == mpl ? "" : normalizedPath.substring(mpl+1),arg1,arg2);
+                for (MP mp : list) {
+                  int mpl = mp.path.length();
+                  if(normalizedPath.startsWith(mp.path) && (pl == mpl || normalizedPath.charAt(mpl) == '/'))
+                    return mp.fs.dispatch(op,r,pl == mpl ? "" : normalizedPath.substring(mpl+1),arg1,arg2);
                 }
             }
             return root.dispatch(op,r,normalizedPath,arg1,arg2);
@@ -1895,6 +1938,9 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
         }
     }
 
+    /**
+     * File System
+     */
     public abstract static class FS {
         static final int OPEN = 1;
         static final int STAT = 2;
@@ -2058,6 +2104,9 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
         return fs.new HostDirFD(f);
     }
 
+    /**
+     * File system host
+     */
     public static class HostFS extends FS {
         InodeCache inodes = new InodeCache(4000);
         protected File root;
@@ -2190,9 +2239,11 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
         }
     }
 
-    /* Implements the Cygwin notation for accessing MS Windows drive letters
+    /**
+     * Implements the Cygwin notation for accessing MS Windows drive letters
      * in a unix path. The path /cygdrive/c/myfile is converted to C:\file.
-     * As there is no POSIX standard for this, little checking is done. */
+     * As there is no POSIX standard for this, little checking is done. 
+     */
     public static class CygdriveFS extends HostFS {
         @Override
         protected File hostFile(String path) {
@@ -2290,6 +2341,9 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
         }
     }
 
+    /**
+     * File system dev
+     */
     public static class DevFS extends FS {
         private static final int ROOT_INODE = 1;
         private static final int NULL_INODE = 2;
@@ -2548,6 +2602,9 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
     }
 
 
+    /**
+     * File system resource
+     */
     public static class ResourceFS extends FS {
         final InodeCache inodes = new InodeCache(500);
 
@@ -2572,6 +2629,12 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
             throw new ErrnoException(EROFS);
         }
 
+        /**
+         * File Stat connection
+         * 
+         * @param conn the url of connection
+         * @return the result code
+         */
         FStat connFStat(final URLConnection conn) {
             return new FStat() {
                 @Override
@@ -2636,7 +2699,7 @@ public abstract class UnixRuntime extends Runtime implements Cloneable {
                     }
                 };
             } catch(FileNotFoundException e) {
-                if(e.getMessage() != null && e.getMessage().indexOf("Permission denied") >= 0) throw new ErrnoException(EACCES);
+                if(e.getMessage() != null && e.getMessage().contains("Permission denied")) throw new ErrnoException(EACCES);
                 return null;
             } catch(IOException e) {
                 throw new ErrnoException(EIO);

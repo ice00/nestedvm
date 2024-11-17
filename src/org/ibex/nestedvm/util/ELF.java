@@ -4,7 +4,11 @@
 
 package org.ibex.nestedvm.util;
 
-import java.io.*;
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
 
 /**
  * Manage ELF binary file format

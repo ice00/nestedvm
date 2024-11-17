@@ -37,10 +37,18 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
   /** Number of guard pages to keep between the stack and the heap */
   private static final int STACK_GUARD_PAGES = 4;
 
-  /** The last address the executable uses (other than the heap/stack) */
+  /** 
+   * The last address the executable uses (other than the heap/stack)
+   * 
+   * @return the start of heap address
+   */
   protected abstract int heapStart();
 
-  /** The program's entry point */
+  /** 
+   * The program's entry point
+   * 
+   * @return the program's entry point
+   */
   protected abstract int entryPoint();
 
   /** 
@@ -183,26 +191,30 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
 
   /**
    * Subclasses should populate a CPUState object representing the cpu state
+   * 
+   * @param state the cpu state
    */
   protected abstract void getCPUState(CPUState state);
 
   /**
    * Subclasses should set the CPUState to the state held in <i>state</i>
+   * 
+   * @param state the cpu state
    */
   protected abstract void setCPUState(CPUState state);
 
   /**
    * True to enabled a few hacks to better support the win32 console
    */
-  final static boolean win32Hacks;
+  final static boolean WIN32HACKS;
   
   static {
     String os = Platform.getProperty("os.name");
     String prop = Platform.getProperty("nestedvm.win32hacks");
     if (prop != null) {
-      win32Hacks = Boolean.parseBoolean(prop);
+      WIN32HACKS = Boolean.parseBoolean(prop);
     } else {
-      win32Hacks = os != null && os.toLowerCase().contains("windows");
+      WIN32HACKS = os != null && os.toLowerCase().contains("windows");
     }
   }
 
@@ -243,6 +255,13 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     this(pageSize, totalPages, false);
   }
 
+  /**
+   * Construct the runtime with total pages of page size
+   * 
+   * @param pageSize page size 
+   * @param totalPages total pages
+   * @param exec execute flag
+   */
   protected Runtime(int pageSize, int totalPages, boolean exec) {
     if (pageSize <= 0) {
       throw new IllegalArgumentException("pageSize <= 0");
@@ -298,7 +317,7 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
       fds = new FD[OPEN_MAX];
       closeOnExec = new boolean[OPEN_MAX];
 
-      InputStream stdin = win32Hacks ? new Win32ConsoleIS(System.in) : System.in;
+      InputStream stdin = WIN32HACKS ? new Win32ConsoleIS(System.in) : System.in;
       addFD(new TerminalFD(stdin));
       addFD(new TerminalFD(System.out));
       addFD(new TerminalFD(System.err));
@@ -738,7 +757,7 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
   /**
    * Created a new non-empty writable page at page number <i>page</i>
    */
-//    private final int[] initPage(int page) { return initPage(page,false); }
+  //    private final int[] initPage(int page) { return initPage(page,false); }
   
   /**
    * Created a new non-empty page at page number <i>page</i>. If <i>ro</i> is
@@ -1326,6 +1345,16 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
   public static final int O_NONBLOCK = 0x4000;
   public static final int O_NOCTTY   = 0x8000;
 
+  /**
+   * Open the file and return the file descriptor
+   * 
+   * @param f the file
+   * @param flags flags for file
+   * @param mode mode to open
+   * @param data the data
+   * @return the file descriptor
+   * @throws org.ibex.nestedvm.Runtime.ErrnoException In case of error
+   */
   FD hostFSOpen(final File f, int flags, int mode, final Object data) throws ErrnoException {
     if ((flags & ~(3 | O_CREAT | O_EXCL | O_APPEND | O_TRUNC)) != 0) {
       if (STDERR_DIAG) {
@@ -1359,7 +1388,7 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     try {
       sf = new Seekable.File(f, write, (flags & O_TRUNC) != 0);
     } catch (FileNotFoundException e) {
-      if (e.getMessage() != null && e.getMessage().indexOf("Permission denied") >= 0) {
+      if (e.getMessage() != null && e.getMessage().contains("Permission denied")) {
         throw new ErrnoException(EACCES);
       }
       return null;
@@ -1375,20 +1404,51 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     };
   }
 
+  /**
+   * Return the file stat
+   * 
+   * @param f the file
+   * @param sf the seeakable file
+   * @param data the data
+   * @return the file stat
+   */
   FStat hostFStat(File f, Seekable.File sf, Object data) {
     return new HostFStat(f, sf);
   }
 
+  /**
+   * Get file descrptor of dir
+   * 
+   * @param f the file 
+   * @param data the data
+   * @return the file descriptor
+   */
   FD hostFSDirFD(File f, Object data) {
     return null;
   }
 
+  /**
+   * Open the file and return the file descriptor
+   * 
+   * @param path the path of file
+   * @param flags the flags
+   * @param mode the file mode
+   * @return the file descriptor
+   * @throws org.ibex.nestedvm.Runtime.ErrnoException In case of error
+   */
   FD _open(String path, int flags, int mode) throws ErrnoException {
     return hostFSOpen(new File(path), flags, mode, null);
   }
 
   /**
    * The open syscall
+   * 
+   * @param addr the address
+   * @param flags the flags
+   * @param mode the mode
+   * @return system call result (file descriptior number)
+   * @throws org.ibex.nestedvm.Runtime.ErrnoException In case of error
+   * @throws org.ibex.nestedvm.Runtime.FaultException Im case of fault
    */
   private int sys_open(int addr, int flags, int mode) throws ErrnoException, FaultException {
     String name = cstring(addr);
@@ -1414,6 +1474,13 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
 
   /**
    * The write syscall
+   * 
+   * @param fdn file descriptior number
+   * @param addr the address
+   * @param count size to write
+   * @return the syscall result
+   * @throws org.ibex.nestedvm.Runtime.FaultException In case of fault error
+   * @throws org.ibex.nestedvm.Runtime.ErrnoException  In case of error
    */
   private int sys_write(int fdn, int addr, int count) throws FaultException, ErrnoException {
     count = Math.min(count, MAX_CHUNK);
@@ -1437,6 +1504,13 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
 
   /**
    * The read syscall
+   * 
+   * @param fdn the file description number
+   * @param addr the address
+   * @param count the size to read
+   * @return the syscall result
+   * @throws org.ibex.nestedvm.Runtime.FaultException In case of fault
+   * @throws org.ibex.nestedvm.Runtime.ErrnoException In case of error
    */
   private int sys_read(int fdn, int addr, int count) throws FaultException, ErrnoException {
     count = Math.min(count, MAX_CHUNK);
@@ -1454,6 +1528,10 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
 
   /**
    * The ftruncate syscall
+   * 
+   * @param fdn file description number
+   * @param length size to truncate
+   * @return the sycall result
    */
   private int sys_ftruncate(int fdn, long length) {
     if (fdn < 0 || fdn >= OPEN_MAX) {
@@ -1477,13 +1555,22 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
 
   /**
    * The close syscall
-   */
+   * 
+   * @param fdn the file descriptor number
+   * @return the sycall result
+   */   
   private int sys_close(int fdn) {
     return closeFD(fdn) ? 0 : -EBADFD;
   }
 
   /**
    * The seek syscall
+   * 
+   * @param fdn the file descriptor number
+   * @param offset the offset to seek
+   * @param whence type of seek
+   * @return the syscall result
+   * @throws org.ibex.nestedvm.Runtime.ErrnoException In case of error
    */
   private int sys_lseek(int fdn, int offset, int whence) throws ErrnoException {
     if (fdn < 0 || fdn >= OPEN_MAX) {
@@ -1501,7 +1588,12 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
 
   /**
    * The stat/fstat syscall helper
-   */
+   * 
+   * @param fs tjhe file stat
+   * @param addr the address
+   * @return the result of oepration
+   * @throws org.ibex.nestedvm.Runtime.FaultException In case of fault
+   */   
   int stat(FStat fs, int addr) throws FaultException {
     memWrite(addr + 0, (fs.dev() << 16) | (fs.inode() & 0xffff)); // st_dev (top 16), // st_ino (bottom 16)
     memWrite(addr + 4, ((fs.type() & 0xf000)) | (fs.mode() & 0xfff)); // st_mode
@@ -1523,7 +1615,12 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
 
   /**
    * The fstat syscall
-   */
+   * 
+   * @param fdn the file descriptor number
+   * @param addr the address
+   * @return the result of operation
+   * @throws org.ibex.nestedvm.Runtime.FaultException 
+   */   
   private int sys_fstat(int fdn, int addr) throws FaultException {
     if (fdn < 0 || fdn >= OPEN_MAX) {
       return -EBADFD;
@@ -1540,6 +1637,15 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     long tv_usec;
     };
    */
+  
+  /**
+   * Get time of day
+   * 
+   * @param timevalAddr time value address position
+   * @param timezoneAddr time zone address position
+   * @return the result of operation
+   * @throws org.ibex.nestedvm.Runtime.FaultException 
+   */
   private int sys_gettimeofday(int timevalAddr, int timezoneAddr) throws FaultException {
     long now = System.currentTimeMillis();
     int tv_sec = (int) (now / 1000);
@@ -1549,6 +1655,12 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     return 0;
   }
 
+  /**
+   * Sleep the given seconds
+   * 
+   * @param sec the seconds to sleep
+   * @return the state of operation
+   */
   private int sys_sleep(int sec) {
     if (sec < 0) {
       sec = Integer.MAX_VALUE;
@@ -1570,6 +1682,13 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
       clock_t   tms_cutime;
       clock_t   tms_cstime;
     };*/
+  
+  /**
+   * Get he time
+   * 
+   * @param tms the time address position
+   * @return the state of operation
+   */
   private int sys_times(int tms) {
     long now = System.currentTimeMillis();
     int userTime = (int) ((now - startTime) / 16);
@@ -1588,6 +1707,12 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     return (int) now;
   }
 
+  /**
+   * Set the system configuration
+   * 
+   * @param n the key of configuration
+   * @return the state of operation
+   */
   private int sys_sysconf(int n) {
     switch (n) {
       case _SC_CLK_TCK:
@@ -1607,7 +1732,10 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
   /**
    * The sbrk syscall. This can also be used by subclasses to allocate memory.
    * <i>incr</i> is how much to increase the break by
-   */
+   * 
+   * @param incr the increment
+   * @return the memory position
+   */  
   public final int sbrk(int incr) {
     if (incr < 0) {
       return -ENOMEM;
@@ -1644,20 +1772,48 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
 
   /**
    * The getpid syscall
+   * 
+   * @return the pid
    */
   private int sys_getpid() {
     return getPid();
   }
 
+  /**
+   * Return the pid
+   * 
+   * @return the pid
+   */
   int getPid() {
     return 1;
   }
 
+  /**
+   * Call Java CallBack
+   */
   public static interface CallJavaCB {
 
+    /**
+     * Call java
+     *
+     * @param a first parameter
+     * @param b second parameter
+     * @param c third parameter
+     * @param d fourth parameter
+     * @return the result of operation
+     */
     public int call(int a, int b, int c, int d);
   }
 
+  /**
+   * Call java 
+   * 
+   * @param a first parameter
+   * @param b second parameter
+   * @param c third parameter
+   * @param d fourth parameter
+   * @return the result of operation
+   */
   private int sys_calljava(int a, int b, int c, int d) {
     if (state != RUNNING) {
       throw new IllegalStateException("wound up calling sys_calljava while not in RUNNING");
@@ -1682,11 +1838,21 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * Pause
+   * 
+   * @return the status 
+   */
   private int sys_pause() {
     state = PAUSED;
     return 0;
   }
 
+  /**
+   * Get the size of the page
+   * 
+   * @return the size of the page
+   */
   private int sys_getpagesize() {
     return writePages.length == 1 ? 4096 : (1 << pageShift);
   }
@@ -1697,6 +1863,12 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
   void _exited() {
   }
 
+  /**
+   * Exit
+   * 
+   * @param status status to use
+   * @param fromSignal send the signal
+   */
   void exit(int status, boolean fromSignal) {
     if (fromSignal && fds[2] != null) {
       try {
@@ -1715,11 +1887,26 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     _exited();
   }
 
+  /**
+   * Exit with the given status 
+   * 
+   * @param status the status
+   * @return the status
+   */
   private int sys_exit(int status) {
     exit(status, false);
     return 0;
   }
 
+  /**
+   * File control
+   * 
+   * @param fdn the file descriptor number
+   * @param cmd command
+   * @param arg argument
+   * @return the status of operation
+   * @throws org.ibex.nestedvm.Runtime.FaultException In case of fault
+   */
   final int sys_fcntl(int fdn, int cmd, int arg) throws FaultException {
     int i;
 
@@ -1767,6 +1954,12 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * File sync
+   * 
+   * @param fdn the file description number
+   * @return the status of operation
+   */
   final int fsync(int fdn) {
     if (fdn < 0 || fdn >= OPEN_MAX) {
       return -EBADFD;
@@ -1804,18 +1997,32 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
       //if(n<0) throw new ErrnoException(-n);
       return n;
     } catch (ErrnoException ex) {
-      //System.err.println("While executing syscall: " + syscall + ":");
-      //if(syscall == SYS_open) try { System.err.println("Failed to open " + cstring(a) + " errno " + ex.errno); } catch(Exception e2) { }
-      //ex.printStackTrace();
-      return -ex.errno;
+        //System.err.println("While executing syscall: " + syscall + ":");
+        //if(syscall == SYS_open) try { System.err.println("Failed to open " + cstring(a) + " errno " + ex.errno); } catch(Exception e2) { }
+        //ex.printStackTrace();
+        return -ex.errno;
     } catch (FaultException ex) {
-      return -EFAULT;
+        return -EFAULT;
     } catch (RuntimeException ex) {
-      ex.printStackTrace();
-      throw new Error("Internal Error in _syscall()");
+        ex.printStackTrace();
+        throw new Error("Internal Error in _syscall()");
     }
   }
 
+  /**
+   * Execute a system call
+   * 
+   * @param syscall the type of syscall
+   * @param a first parameter
+   * @param b second parameter
+   * @param c third parameter
+   * @param d forth parameter
+   * @param e fifth parameter
+   * @param f sixth parameter
+   * @return the result of operation
+   * @throws org.ibex.nestedvm.Runtime.ErrnoException
+   * @throws org.ibex.nestedvm.Runtime.FaultException 
+   */
   protected int _syscall(int syscall, int a, int b, int c, int d, int e, int f) throws ErrnoException, FaultException {
     switch (syscall) {
       case SYS_null:
@@ -1927,6 +2134,13 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     return p;
   }
 
+  /**
+   * Reallocate the memory
+   * 
+   * @param addr the address
+   * @param newsize the new size
+   * @return the result code
+   */
   public int realloc(int addr, int newsize) {
     try {
       return call("realloc", addr, newsize);
@@ -1935,6 +2149,12 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * Memory allocation
+   * 
+   * @param size the size to allocate
+   * @return the result code
+   */
   public int malloc(int size) {
     try {
       return call("malloc", size);
@@ -1943,6 +2163,11 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * Free the given memory
+   * 
+   * @param p the memory
+   */
   public void free(int p) {
     try {
       if (p != 0) {
@@ -2084,6 +2309,12 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     /**
      * Read some bytes. Should return the number of bytes read, 0 on EOF, or
      * throw an IOException on error
+     * 
+     * @param a buffer 
+     * @param off offset in buffer
+     * @param length length to read
+     * @return number of byte read
+     * @throws org.ibex.nestedvm.Runtime.ErrnoException In case of error
      */
     public int read(byte[] a, int off, int length) throws ErrnoException {
       throw new ErrnoException(EBADFD);
@@ -2092,6 +2323,12 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     /**
      * Write. Should return the number of bytes written or throw an IOException
      * on error
+     * 
+     * @param a buffer
+     * @param off offset in buffer
+     * @param length length to write
+     * @return number of bytes wrote
+     * @throws org.ibex.nestedvm.Runtime.ErrnoException In case of error
      */
     public int write(byte[] a, int off, int length) throws ErrnoException {
       throw new ErrnoException(EBADFD);
@@ -2559,6 +2796,9 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * Custom exception for read fault
+   */
   // Exceptions
   @SuppressWarnings("serial")
   public static class ReadFaultException extends FaultException {
@@ -2568,6 +2808,9 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * Custom exception for write fault
+   */
   @SuppressWarnings("serial")
   public static class WriteFaultException extends FaultException {
 
@@ -2576,6 +2819,9 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * Custom exception for fault
+   */
   public static class FaultException extends ExecutionException {
 
     private static final long serialVersionUID = 1993341550704254767L;
@@ -2595,6 +2841,9 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * Custom exception for execution
+   */
   public static class ExecutionException extends Exception {
 
     private static final long serialVersionUID = -1193375196847520507L;
@@ -2620,6 +2869,9 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * Custom exception for call
+   */
   @SuppressWarnings("serial")
   public static class CallException extends Exception {
 
@@ -2628,6 +2880,9 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * Custom exception with error number
+   */
   @SuppressWarnings("serial")
   protected static class ErrnoException extends Exception {
 
@@ -2638,12 +2893,16 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
       this.errno = errno;
     }
   }
-
-  // CPU State
+  
+  /**
+   * CPU State
+   */
   protected static class CPUState {
 
     public CPUState() {
-      /* noop */ }
+      /* noop */ 
+    }
+    
     /* GPRs */
     public int[] r = new int[32];
     /* Floating point regs */
@@ -2652,6 +2911,11 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     public int fcsr;
     public int pc;
 
+    /**
+     * Dup currente cpu state
+     * 
+     * @return a dup of current cpu state
+     */
     public CPUState dup() {
       CPUState c = new CPUState();
       c.hi = hi;
@@ -2666,6 +2930,9 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * Custom security manager
+   */
   public static class SecurityManager {
 
     public boolean allowRead(File f) {
@@ -2684,15 +2951,25 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
       return true;
     }
   }
-
-  // Null pointer check helper function
+  
+  /**
+   * Null pointer check helper function
+   * 
+   * @param addr address to test
+   * @throws org.ibex.nestedvm.Runtime.ExecutionException In case of error
+   */
   protected final void nullPointerCheck(int addr) throws ExecutionException {
     if (addr < 65536) {
       throw new ExecutionException("Attempted to dereference a null pointer " + toHex(addr));
     }
   }
 
-  // Utility functions
+  /**
+   * Get a buffer of the given size
+   * 
+   * @param size the size to use
+   * @return the buffer
+   */
   byte[] byteBuf(int size) {
     if (_byteBuf == null) {
       _byteBuf = new byte[size];
@@ -2704,6 +2981,10 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
 
   /**
    * Decode a packed string
+   * 
+   * @param s the string to decode
+   * @param words the number of words
+   * @return the list of string
    */
   protected static final int[] decodeData(String s, int words) {
     if (s.length() % 8 != 0) {
@@ -2732,6 +3013,12 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     return buf;
   }
 
+  /**
+   * Encodes this String into a sequence of bytes using the given charset name
+   * 
+   * @param s the string
+   * @return the sequence of bytes
+   */
   static byte[] getBytes(String s) {
     try {
       return s.getBytes("UTF-8");
@@ -2740,6 +3027,13 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     }
   }
 
+  /**
+   * Encodes this String into a sequence of bytes, terminating with 0,
+   * using the given charset name
+   * 
+   * @param s the string
+   * @return the sequence of bytes
+   */
   static byte[] getNullTerminatedBytes(String s) {
     byte[] buf1 = getBytes(s);
     byte[] buf2 = new byte[buf1.length + 1];
@@ -2747,14 +3041,34 @@ public abstract class Runtime implements UsermodeConstants, Registers, Cloneable
     return buf2;
   }
 
+  /**
+   * Convert the number to hex string
+   * 
+   * @param n the number
+   * @return the hex string
+   */
   final static String toHex(int n) {
     return "0x" + Long.toString(n & 0xffffffffL, 16);
   }
 
+  /**
+   * Return the minfrom two numbers
+   * 
+   * @param a first number
+   * @param b second number
+   * @return the min number
+   */
   final static int min(int a, int b) {
     return a < b ? a : b;
   }
 
+  /**
+   * Return the max from two numbers
+   * 
+   * @param a first number
+   * @param b second number
+   * @return the max number
+   */
   final static int max(int a, int b) {
     return a > b ? a : b;
   }

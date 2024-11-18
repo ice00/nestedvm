@@ -1,0 +1,11 @@
+--- zlib/Makefile.in-origin	2024-11-18 20:19:06.371818915 +0100
++++ zlib/Makefile.in	2024-11-18 20:54:22.282679597 +0100
+@@ -22,7 +22,7 @@
+ 
+ SFLAGS=-O
+ LDFLAGS=
+-TEST_LIBS=-L. libz.a 
++TEST_LIBS=-L. libz.a $(prefix)/mips-unknown-elf/lib/libc.a -e main $(prefix)/mips-unknown-elf/lib/liblsi.a $(prefix)/mips-unknown-elf/lib/libnosys.a
+ LDSHARED=$(CC)
+ CPP=$(CC) -E
+ 

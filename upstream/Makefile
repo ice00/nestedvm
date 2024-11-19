@@ -277,6 +277,7 @@ url_linpack = http://www.math.iastate.edu/burkardt/f_src/linpack_bench/linpack_b
 version_zlib = 1.3.1
 url_zlib = http://www.zlib.net/zlib-$(version_zlib).tar.gz
 configure_zlib = --static
+patches_zlib = zlib.patch
 
 tasks/build_zlib: tasks/patch_zlib
 	mkdir -p $(usr)

@@ -305,7 +305,7 @@ tasks/build_libpng: tasks/build_zlib tasks/patch_libpng tasks/build_libc
 
 version_libiconv = 1.17
 url_libiconv = http://ftp.gnu.org/gnu/libiconv/libiconv-$(version_libiconv).tar.gz
-patch_libiconv = libiconv.patch
+patches_libiconv = libiconv.patch
 configure_libiconv = --disable-shared --host=mips-unknown-elf
 
 tasks/build_libiconv: tasks/patch_libiconv tasks/build_libc

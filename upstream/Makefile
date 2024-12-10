@@ -52,7 +52,7 @@ PATCH = $(shell test `uname` = SunOS && echo gpatch || echo patch)
 TAR = $(shell test `uname` = SunOS && echo gtar || echo tar)
 
 # Add extra nestedvm specific headers to include
-tasks/build_extraheaders: $(upstream)/misc/extraheaders.sh tasks/build_newlib
+tasks/build_extraheaders: $(upstream)/misc/extraheaders.sh tasks/build_newlib>
 
 	cd $(cross_root)/include && sh $<
 	touch $@
@@ -429,8 +429,8 @@ tasks/build_libmspack: tasks/patch_libmspack tasks/build_libc
 
 ## freetype ##############################################################################
 
-version_freetype = 2.13.2
-url_freetype = $(sourceforge)freetype/files/freetype2/freetype-$(version_freetype).tar.gz 
+version_freetype = 2.13.3
+url_freetype = https://sourceforge.net/projects/freetype/files/freetype2/$(version_freetype)/freetype-$(version_freetype).tar.gz
 #patches_freetype = freetype.patch ft-nostdio.patch
 
 tasks/build_freetype: tasks/patch_freetype tasks/build_libc

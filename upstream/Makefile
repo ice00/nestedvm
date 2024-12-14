@@ -52,7 +52,7 @@ PATCH = $(shell test `uname` = SunOS && echo gpatch || echo patch)
 TAR = $(shell test `uname` = SunOS && echo gtar || echo tar)
 
 # Add extra nestedvm specific headers to include
-tasks/build_extraheaders: $(upstream)/misc/extraheaders.sh tasks/build_newlib>
+tasks/build_extraheaders: $(upstream)/misc/extraheaders.sh tasks/build_newlib
 
 	cd $(cross_root)/include && sh $<
 	touch $@
@@ -325,6 +325,7 @@ configure_gd = --disable-shared --host=mips-unknown-elf
 tasks/build_gd: tasks/build_freetype tasks/patch_gd tasks/build_libc
 	mkdir -p $(usr)
 	cd build/gd-$(version_gd) && \
+		cmake ./ && \
 		CPPFLAGS=-I$(usr)/include/freetype2 LDFLAGS=-L$(usr)/lib ./configure --prefix=$(usr) $(configure_gd) && \
 		$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
 		$(MAKE) install
@@ -433,7 +434,8 @@ version_freetype = 2.13.3
 url_freetype = https://sourceforge.net/projects/freetype/files/freetype2/$(version_freetype)/freetype-$(version_freetype).tar.gz
 #patches_freetype = freetype.patch ft-nostdio.patch
 
-tasks/build_freetype: tasks/patch_freetype tasks/build_libc
+tasks/build_freetype: tasks/patch_freetype tasks/build_libc 
+	cd build; ln -s libgd-gd-$(version_gd) gd-$(version_gd); cd .. && \
 	cd build/freetype-$(version_freetype) && \
 		$(MAKE) setup ansi && \
 		$(MAKE) CC="mips-unknown-elf-gcc" \

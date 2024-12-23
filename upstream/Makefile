@@ -235,10 +235,6 @@ patches_newlib = newlib-mips.patch
 configure_newlib = --enable-multilib --target=mips-unknown-elf
 
 tasks/build_newlib: tasks/build_gcc
-	cd build/newlib && \
-	./configure --prefix=$(usr) $(configure_newlib) && \
-	$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
-		$(MAKE) install
 
 ## openbsdglob ##############################################################################
 
@@ -328,6 +324,11 @@ configure_gd = --disable-shared --host=mips-unknown-elf
 
 tasks/build_gd: tasks/build_freetype tasks/patch_gd tasks/build_libc
 	mkdir -p $(usr)
+	cd build/newlib && \
+	./configure --prefix=$(usr) $(configure_newlib) && \
+	$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
+		$(MAKE) install && \
+	cd ../../ && \
 	cd build/gd-$(version_gd) && \
 		cmake CMakeLists.txt && \
 		./bootstrap.sh && \

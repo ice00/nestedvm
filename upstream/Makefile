@@ -327,14 +327,15 @@ tasks/build_gd: tasks/build_freetype tasks/patch_gd tasks/build_libc
 	cd build/newlib && \
 	./configure --prefix=$(usr) $(configure_newlib) && \
 	$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
-		$(MAKE) install && \
+	$(MAKE) install && \
 	cd ../../ && \
 	cd build/gd-$(version_gd) && \
-		cmake CMakeLists.txt && \
-		./bootstrap.sh && \
-		CPPFLAGS=-I$(usr)/include/freetype2 LDFLAGS=-L$(usr)/lib ./configure --prefix=$(usr) $(configure_gd) && \
-		$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
-		$(MAKE) install
+	cmake CMakeLists.txt && \
+	./bootstrap.sh && \
+	CPPFLAGS="-I$(usr)/include/freetype2 -I$(shell pwd)/build/newlib/newlib/libc/sys/rtems/include" LDFLAGS=-L$(usr)/lib ./configure --prefix=$(usr) $(configure_gd) && \
+	sed -i 's/-pthread//g' src/Makefile  && \
+	$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
+	$(MAKE) install
 	touch $@
 
 

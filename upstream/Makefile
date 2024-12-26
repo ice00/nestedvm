@@ -12,6 +12,7 @@ tasks/everything: \
 	tasks/build_zlib \
 	tasks/build_libpng \
 	tasks/build_libiconv \
+	tasks/build_libavif \
 	tasks/build_gd \
 	tasks/build_expat \
 	tasks/build_gmp \
@@ -316,13 +317,49 @@ tasks/build_libiconv: tasks/patch_libiconv tasks/build_libc
 		$(MAKE) install
 	touch $@
 
+## libyuv ##############################################################################
+
+url_libyuv = https://chromium.googlesource.com/libyuv/libyuv/+archive/refs/heads/main.tar.gz
+configure_libavif = --disable-shared --host=mips-unknown-elf
+
+## libavif ##############################################################################
+
+version_libavif = 1.1.1
+url_libavif = https://github.com/AOMediaCodec/libavif/archive/refs/tags/v$(version_libavif).tar.gz
+configure_libavif = --disable-shared --host=mips-unknown-elf
+
+task_mv_libavif:
+	pwd && \
+	mv download/v$(version_libavif).tar.gz download/libavif-$(version_libavif).tar.gz
+
+tasks/build_libavif: tasks/download_libavif task_mv_libavif tasks/extract_libavif
+	mkdir -p $(usr)
+	cd build/libavif-$(version_libavif) && \
+	cmake -DAVIF_LIBYUV_ENABLED=OFF \
+		-DSKIP_INSTALL_LIBRARIES=YES \
+		-DCMAKE_C_FLAGS="-O2 -mabicalls" \
+		-DCMAKE_CXX_FLAGS="-O2 -mabicalls" \
+		-DLIBYUV_LIBRARY=third_party/libyuv/ \
+		-DLIBYUV_INCLUDE_DIR=third_party/libyuv/ \
+		-DCMAKE_INSTALL_PREFIX=$(usr) \
+		-DCMAKE_SYSTEM_NAME=Generic \
+		-DCMAKE_SYSTEM_PROCESSOR=mips \
+		-DCMAKE_C_COMPILER=mips-unknown-elf-gcc \
+		-DCMAKE_CXX_COMPILER=mips-unknown-elf-g++ \
+		-DCMAKE_ASM_COMPILER=mips-unknown-elf-as \
+		-DCMAKE_EXE_LINKER_FLAGS="-static" \
+		CMakeLists.txt && \
+	$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
+	$(MAKE) install
+	touch $@
+
 ## gd ##############################################################################
 
 version_gd = 2.3.3
 url_gd = http://github.com/libgd/libgd/archive/refs/tags/gd-$(version_gd).tar.gz
 configure_gd = --disable-shared --host=mips-unknown-elf
 
-tasks/build_gd: tasks/build_freetype tasks/patch_gd tasks/build_libc
+tasks/build_gd: tasks/build_freetype tasks/patch_gd tasks/build_libc tasks/build_libavif
 	mkdir -p $(usr)
 	cd build/newlib && \
 	./configure --prefix=$(usr) $(configure_newlib) && \

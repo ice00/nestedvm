@@ -13,13 +13,13 @@ tasks/everything: \
 	tasks/build_libpng \
 	tasks/build_libiconv \
 	tasks/build_libavif \
+	tasks/build_libjpeg \
 	tasks/build_gd \
 	tasks/build_expat \
 	tasks/build_gmp \
 	tasks/build_expat \
 	tasks/build_linker \
 	tasks/build_libc \
-	tasks/build_libjpeg \
 	tasks/build_libmspack \
 	tasks/build_freetype \
 	tasks/build_boehmgc \
@@ -341,7 +341,7 @@ tasks/build_libavif: tasks/download_libavif task_mv_libavif tasks/extract_libavi
 		-DCMAKE_CXX_FLAGS="-O2 -mabicalls" \
 		-DLIBYUV_LIBRARY=third_party/libyuv/ \
 		-DLIBYUV_INCLUDE_DIR=third_party/libyuv/ \
-		-DCMAKE_INSTALL_PREFIX=$(usr) \
+		-DCMAKE_INSTALL_PREFIX=$(cross_root) \
 		-DCMAKE_SYSTEM_NAME=Generic \
 		-DCMAKE_SYSTEM_PROCESSOR=mips \
 		-DCMAKE_C_COMPILER=mips-unknown-elf-gcc \
@@ -422,9 +422,6 @@ tasks/build_linker: tasks/build_binutils $(root)/src/org/ibex/nestedvm/linker.ld
 	touch $@
 
 
-
-
-
 ## libjpeg ##############################################################################
 
 version_libjpeg = 9f
@@ -433,20 +430,20 @@ url_libjpeg = http://www.ijg.org/files/jpegsrc.v$(version_libjpeg).tar.gz
 tasks/extract_libjpeg: tasks/download_libjpeg
 	mkdir -p build
 	cd build && \
-		gzip -dc ../download/jpegsrc.v$(version_libjpeg).tar.gz | $(TAR) -xf - && \
-		mv jpeg-$(version_libjpeg) libjpeg-$(version_libjpeg) && \
-		rm -f libjpeg && \
-		ln -s libjpeg-$(version_libjpeg)  libjpeg
+	gzip -dc ../download/jpegsrc.v$(version_libjpeg).tar.gz | $(TAR) -xf - && \
+	mv jpeg-$(version_libjpeg) libjpeg-$(version_libjpeg) && \
+	rm -f libjpeg && \
+	ln -s libjpeg-$(version_libjpeg)  libjpeg
 	touch $@    
 
 tasks/build_libjpeg: tasks/patch_libjpeg tasks/build_libc
 	cd build/libjpeg-$(version_libjpeg) && \
-		./configure --host=mips && \
-		make CC="mips-unknown-elf-gcc" \
-			AR="mips-unknown-elf-ar rc" \
-			AR2="mips-unknown-elf-ranlib" \
-			CFLAGS="$(MIPS_CFLAGS)" \
-			LDFLAGS="$(MIPS_LDFLAGS)"
+	LDFLAGS="-L$(usr)/lib -Wl,-e,main -Wl,--allow-multiple-definition $(usr)/mips-unknown-elf/lib/libc.a $(usr)/mips-unknown-elf/lib/libcfe.a $(usr)/mips-unknown-elf/lib/libnosys.a" ./configure --host=mips  --prefix=$(cross_root) && \
+	make CC="mips-unknown-elf-gcc" \
+		AR="mips-unknown-elf-ar rc" \
+		AR2="mips-unknown-elf-ranlib" \
+		CFLAGS="$(MIPS_CFLAGS)" && \
+	$(MAKE) install
 	touch $@    
 
 ## libmspack ##############################################################################

@@ -14,6 +14,7 @@ tasks/everything: \
 	tasks/build_libiconv \
 	tasks/build_libavif \
 	tasks/build_libjpeg \
+	tasks/build_tiff \
 	tasks/build_gd \
 	tasks/build_expat \
 	tasks/build_gmp \
@@ -283,10 +284,29 @@ patches_zlib = zlib.patch
 tasks/build_zlib: tasks/patch_zlib
 	mkdir -p $(usr)
 	cd build/zlib-$(version_zlib) && \
-		AR=mips-unknown-elf-ar CC=mips-unknown-elf-gcc ./configure --prefix=$(usr) $(configure_zlib) && \
-		$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
-		$(MAKE) install
+	AR=mips-unknown-elf-ar CC=mips-unknown-elf-gcc ./configure --prefix=$(usr) $(configure_zlib) && \
+	$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
+	$(MAKE) install
 	touch $@
+
+## zstd ##############################################################################
+
+#version_zstd = 1.5.6
+#url_zstd = https://github.com/facebook/zstd/releases/download/v$(version_zstd)/zstd-$(version_zstd).tar.gz
+#configure_zstd = --static --host=mips-unknown-elf
+
+#tasks/build_zstd: tasks/download_zstd tasks/extract_zstd
+#	mkdir -p $(usr)
+#	cd build/zstd-$(version_zstd) && \
+	AR=mips-unknown-elf-ar \
+	CC=mips-unknown-elf-g++ \
+	LD=mips-unknown-elf-ld \
+	$(MAKE) V=1 lib-nomt \
+		CFLAGS="-Wl,-fuse-ld=mips-unknown-elf-ld -I$(cross_root)/include/ -L$(usr)/lib  -L$(usr)/lib/gcc/mips-unknown-elf/13.2.0/" \
+		LDFLAGS="-Wl,-fuse-ld=mips-unknown-elf-ld -Wl,/tmp/nestedvm/upstream/install/lib/gcc/mips-unknown-elf/13.2.0/crti.o" \
+               TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
+	$(MAKE) install
+#	touch $@
 
 ## libpng ##############################################################################
 
@@ -360,12 +380,7 @@ url_gd = http://github.com/libgd/libgd/archive/refs/tags/gd-$(version_gd).tar.gz
 configure_gd = --disable-shared --host=mips-unknown-elf
 
 tasks/build_gd: tasks/build_freetype tasks/patch_gd tasks/build_libc tasks/build_libavif
-	mkdir -p $(usr)
-	cd build/newlib && \
-	./configure --prefix=$(usr) $(configure_newlib) && \
-	$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
-	$(MAKE) install && \
-	cd ../../ && \
+	mkdir -p $(usr)	
 	cd build/gd-$(version_gd) && \
 	cmake CMakeLists.txt && \
 	./bootstrap.sh && \
@@ -445,6 +460,30 @@ tasks/build_libjpeg: tasks/patch_libjpeg tasks/build_libc
 		CFLAGS="$(MIPS_CFLAGS)" && \
 	$(MAKE) install
 	touch $@    
+
+## libtiff ##############################################################################
+
+version_tiff = 4.7.0
+url_tiff = https://download.osgeo.org/libtiff/tiff-$(version_tiff).tar.gz
+
+tasks/build_tiff: tasks/download_tiff tasks/extract_tiff
+	mkdir -p $(usr)
+	cd build/newlib && \
+	./configure --prefix=$(usr) $(configure_newlib) && \
+	$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
+	$(MAKE) install && \
+	cd ../../ && \
+	cd build/tiff-$(version_tiff) && \
+	CC="mips-unknown-elf-gcc" CPPFLAGS="-I$(usr)/include/ -I$(usr)/../build/newlib/newlib/libc/sys/rtems/include/" LDFLAGS="-lc -lgcc -L$(usr)/lib  -Wl,-e,main -Wl,--defsym=end=0x80020000 -Wl,--allow-multiple-definition  $(usr)/mips-unknown-elf/lib/libc.a  $(usr)/../build/newlib/mips-unknown-elf/libgloss/mips/libcfe.a /$(usr)/mips-unknown-elf/lib/libcfe.a $(usr)/mips-unknown-elf/lib/libnosys.a  -Wl,--no-whole-archive" ./configure --disable-tools --disable-zlib --disable-contrib --disable-zstd --disable-lzma --disable-webp  --disable-jpeg12 --disable-jpeg --host=mips  --prefix=$(cross_root)  && \
+	sed -i 's/-ldeflate//g' Makefile  && \
+	sed -i 's/-ldeflate//g' port/Makefile  && \
+	sed -i 's/-ldeflate//g' libtiff/Makefile  && \
+	$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" \
+		CC="mips-unknown-elf-gcc"  \
+		AR="mips-unknown-elf-ar rc" \
+		AR2="mips-unknown-elf-ranlib" && \
+	$(MAKE) install
+	touch $@
 
 ## libmspack ##############################################################################
 

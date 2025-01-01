@@ -13,6 +13,7 @@ tasks/everything: \
 	tasks/build_libpng \
 	tasks/build_libiconv \
 	tasks/build_libavif \
+	tasks/build_libwebp \
 	tasks/build_libjpeg \
 	tasks/build_tiff \
 	tasks/build_gd \
@@ -484,6 +485,27 @@ tasks/build_tiff: tasks/download_tiff tasks/extract_tiff
 		AR2="mips-unknown-elf-ranlib" && \
 	$(MAKE) install
 	touch $@
+
+## libwebp ##############################################################################
+
+version_libwebp = 1.5.0
+url_libwebp = https://github.com/webmproject/libwebp/archive/refs/tags/v$(version_libwebp).tar.gz
+configure_libwebp = --disable-shared --host=mips-unknown-elf
+
+task_mv_libwebp:
+	pwd && \
+	mv download/v$(version_libwebp).tar.gz download/libwebp-$(version_libwebp).tar.gz
+
+tasks/build_libwebp: tasks/download_libwebp task_mv_libwebp tasks/extract_libwebp
+	mkdir -p $(usr)	
+	cd build/libwebp-$(version_libwebp) && \
+	cmake CMakeLists.txt && \
+	./autogen.sh && \
+	LDFLAGS="-L$(usr)/lib -Wl,-e,main -Wl,--allow-multiple-definition  $(usr)/mips-unknown-elf/lib/libc.a  $(usr)/mips-unknown-elf/lib/libcfe.a $(usr)/mips-unknown-elf/lib/libnosys.a" ./configure --prefix=$(usr) $(configure_libwebp) && \
+	$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
+	$(MAKE) install
+	touch $@
+
 
 ## libmspack ##############################################################################
 

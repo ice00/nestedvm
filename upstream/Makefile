@@ -16,9 +16,10 @@ tasks/everything: \
 	tasks/build_libwebp \
 	tasks/build_freetype \
 	tasks/build_libjpeg \
+	tasks/build_expat \
+	tasks/build_fontcofig \
 	tasks/build_tiff \
 	tasks/build_gd \
-	tasks/build_expat \
 	tasks/build_gmp \
 	tasks/build_expat \
 	tasks/build_linker \
@@ -309,6 +310,25 @@ tasks/build_zlib: tasks/patch_zlib
 	$(MAKE) install
 #	touch $@
 
+## fontconfig ##############################################################################
+
+version_fontconfig = 2.15.0
+url_fontconfig = https://www.freedesktop.org/software/fontconfig/release/fontconfig-$(version_fontconfig).tar.gz
+configure_fontconfig = --disable-shared --host=mips-unknown-elf
+
+tasks/build_fontcofig: tasks/build_freetype tasks/download_fontconfig tasks/extract_fontconfig
+	mkdir -p $(usr)
+	cd build/fontconfig-$(version_fontconfig) && \
+	FREETYPE_CFLAGS="-I$(shell pwd)/build/freetype/include" \
+	CPPFLAGS="-I$(usr)/include -I$(shell pwd)/build/expat/lib/ -I$(shell pwd)/build/freetype/include" \
+	LDFLAGS="-L$(usr)/lib -Wl,--allow-multiple-definition -L$(shell pwd)/build/freetype/objs/"  \
+	LIBS="$(usr)/mips-unknown-elf/lib/libc.a -e main $(usr)/mips-unknown-elf/lib/libcfe.a  $(usr)/mips-unknown-elf/lib/libnosys.a $(usr)/lib/libexpat.a" \
+	./configure --prefix=$(usr) $(configure_fontconfig) && \
+	sed -i 's/-pthread//g' src/Makefile  && \
+		$(MAKE) FREETYPE_CFLAGS="-I$(shell pwd)/build/freetype/include"  CPPFLAGS="-I$(usr)/include -I$(shell pwd)/build/expat/lib/ -I$(shell pwd)/build/freetype/include" TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
+		$(MAKE) install
+	touch $@
+
 ## libpng ##############################################################################
 
 version_libpng = 1.6.43
@@ -394,9 +414,9 @@ tasks/build_gd: tasks/build_freetype tasks/patch_gd tasks/build_libc tasks/build
 
 ## expat ##############################################################################
 
-version_expat = 2.6.2
+version_expat = 2.6.4
 url_expat = $(sourceforge)expat/expat-$(version_expat).tar.gz
-configure_expat = --host= --target=mips-unknown-elf
+configure_expat = --host=mips-unknown-elf --target=mips-unknown-elf --enable-static --without-docbook
 
 ## gmp ##############################################################################
 

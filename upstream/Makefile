@@ -14,6 +14,7 @@ tasks/everything: \
 	tasks/build_libiconv \
 	tasks/build_libavif \
 	tasks/build_libwebp \
+	tasks/build_freetype \
 	tasks/build_libjpeg \
 	tasks/build_tiff \
 	tasks/build_gd \
@@ -23,7 +24,6 @@ tasks/everything: \
 	tasks/build_linker \
 	tasks/build_libc \
 	tasks/build_libmspack \
-	tasks/build_freetype \
 	tasks/build_boehmgc \
 	tasks/build_samba \
 	tasks/build_nasm \
@@ -383,11 +383,11 @@ configure_gd = --disable-shared --host=mips-unknown-elf
 tasks/build_gd: tasks/build_freetype tasks/patch_gd tasks/build_libc tasks/build_libavif
 	mkdir -p $(usr)	
 	cd build/gd-$(version_gd) && \
-	cmake CMakeLists.txt && \
+	cmake  -DCMAKE_SYSROOT="$(usr)"  CMakeLists.txt && \
 	./bootstrap.sh && \
-	CPPFLAGS="-I$(usr)/include/freetype2 -I$(shell pwd)/build/newlib/newlib/libc/sys/rtems/include" LDFLAGS=-L$(usr)/lib ./configure --prefix=$(usr) $(configure_gd) && \
+	CPPFLAGS="-I$(usr)/include/ -I$(usr)/include/freetype -I$(shell pwd)/build/freetype/include -I$(shell pwd)/build/newlib/newlib/libc/sys/rtems/include" LDFLAGS=-L$(usr)/lib ./configure --prefix=$(usr) $(configure_gd) && \
 	sed -i 's/-pthread//g' src/Makefile  && \
-	$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
+	$(MAKE) CPPFLAGS="-I$(usr)/include/ -I$(usr)/include/freetype -I$(shell pwd)/build/freetype/include -I$(shell pwd)/build/newlib/newlib/libc/sys/rtems/include" TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
 	$(MAKE) install
 	touch $@
 
@@ -545,6 +545,7 @@ tasks/build_freetype: tasks/patch_freetype tasks/build_libc
 			AR="mips-unknown-elf-ar" \
 			RANLIB="mips-unknown-elf-ranlib" && \
 		mips-unknown-elf-ranlib objs/libfreetype.a
+		$(MAKE) install
 	touch $@    
 
 ## boehm-gc ##############################################################################

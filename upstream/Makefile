@@ -418,6 +418,14 @@ version_expat = 2.6.4
 url_expat = $(sourceforge)expat/expat-$(version_expat).tar.gz
 configure_expat = --host=mips-unknown-elf --target=mips-unknown-elf --enable-static --without-docbook
 
+tasks/build_expat: 
+	mkdir -p $(usr)
+	cd build/expat-$(version_expat) && \
+		CPPFLAGS=-I$(usr)/include LDFLAGS="-L$(usr)/lib -Wl,--allow-multiple-definition"   LIBS="$(usr)/mips-unknown-elf/lib/libc.a -e main $(usr)/mips-unknown-elf/lib/libcfe.a  $(usr)/mips-unknown-elf/lib/libnosys.a" ./configure --prefix=$(usr) $(configure_expat) && \
+		$(MAKE) TARGET_CFLAGS="$(MIPS_CFLAGS)" && \
+		$(MAKE) install
+	touch $@
+
 ## gmp ##############################################################################
 
 version_gmp = 6.3.0
